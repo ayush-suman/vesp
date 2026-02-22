@@ -1,4 +1,4 @@
-from vespwood import (
+from vespwood.errors import (
     MaxTokenLimitError, 
     MissingHookError, 
     MissingParamError, 
