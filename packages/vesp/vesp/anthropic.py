@@ -1,5 +1,9 @@
 import importlib
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from vespwood_anthropic import AnthropicMessagesGenerator
+    
 def __getattr__(name):
     try:
         module = importlib.import_module("vespwood_anthropic")

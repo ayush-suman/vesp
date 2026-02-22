@@ -1,5 +1,10 @@
 import importlib
+from typing import TYPE_CHECKING
 
+
+if TYPE_CHECKING:
+    from vespwood_openai import OpenAIChatCompletionGenerator, OpenAIResponsesGenerator
+    
 def __getattr__(name):
     try:
         # We dynamically load the partner package only when needed
