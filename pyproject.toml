@@ -4,5 +4,5 @@ members = [
     "packages/vespwood",
     "packages/integrations/vespwood-anthropic",
     "packages/integrations/vespwood-openai",
-    "packages/integrations/vespwood-gemini",
+    "packages/integrations/vespwood-google",
 ]

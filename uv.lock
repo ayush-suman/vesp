@@ -7,7 +7,7 @@ members = [
     "vesp",
     "vespwood",
     "vespwood-anthropic",
-    "vespwood-gemini",
+    "vespwood-google",
     "vespwood-openai",
 ]
 
@@ -1078,6 +1078,9 @@ dependencies = [
 anthropic = [
     { name = "vespwood-anthropic" },
 ]
+google = [
+    { name = "vespwood-google" },
+]
 openai = [
     { name = "vespwood-openai" },
 ]
@@ -1090,9 +1093,10 @@ requires-dist = [
     { name = "vespwood", editable = "packages/vespwood" },
     { name = "vespwood", extras = ["yaml"], marker = "extra == 'yaml'", editable = "packages/vespwood" },
     { name = "vespwood-anthropic", marker = "extra == 'anthropic'", editable = "packages/integrations/vespwood-anthropic" },
+    { name = "vespwood-google", marker = "extra == 'google'", editable = "packages/integrations/vespwood-google" },
     { name = "vespwood-openai", marker = "extra == 'openai'", editable = "packages/integrations/vespwood-openai" },
 ]
-provides-extras = ["yaml", "openai", "anthropic"]
+provides-extras = ["yaml", "openai", "google", "anthropic"]
 
 [[package]]
 name = "vespwood"
@@ -1131,9 +1135,9 @@ requires-dist = [
 provides-extras = ["yaml"]
 
 [[package]]
-name = "vespwood-gemini"
+name = "vespwood-google"
 version = "1.0.0"
-source = { editable = "packages/integrations/vespwood-gemini" }
+source = { editable = "packages/integrations/vespwood-google" }
 dependencies = [
     { name = "google-genai" },
     { name = "vespwood" },

@@ -41,6 +41,7 @@ from .hook import hook, Hook
 from .interceptor import interceptor, Interceptor
 from .json_schema import to_json_schema
 from .logic import Logic
+from .match import match
 from .message_converter import message_converter
 from .prompt_mapping import PromptMapping
 from .tag import Tag
