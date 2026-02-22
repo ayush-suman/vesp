@@ -1,0 +1,41 @@
+# --- Python Environment & Bytecode ---
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# --- uv & Environment Management ---
+# Keep the lockfile in git, but ignore the tool's local state
+.uv/
+# If you use uv's python management
+.python-version
+
+# --- Hatch & Build Artifacts ---
+dist/
+build/
+*.egg-info/
+.hatch/
+
+# --- Testing & Coverage ---
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+htmlcov/
+.results/
+
+# --- IDEs & Editors ---
+.vscode/
+# Note: Some teams commit .vscode/extensions.json or launch.json. 
+# Usually, it's safer to ignore the whole folder.
+.idea/
+*.swp
+*.swo
+
+# --- OS & Misc ---
+.DS_Store
+Thumbs.db
+.env
+.secrets

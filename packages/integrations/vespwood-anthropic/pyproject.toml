@@ -1,0 +1,27 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "vespwood-anthropic"
+version = "1.0.0"
+description = "Anthropic integration for Vespwood"
+license = {text = "Apache"}
+readme = "README.md"
+requires-python = ">=3.12.0,<4.0.0"
+dependencies = [
+    "vespwood",
+    "anthropic"
+]
+
+[project.optional-dependencies]
+yaml = [
+    "vespwood[yaml]"
+]
+
+[project.urls]
+Homepage = "https://vespwood.com"
+Repository = "https://github.com/ayush-suman/vesp.git"
+
+[tool.uv.sources]
+vespwood = { workspace = true }

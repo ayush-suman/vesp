@@ -1,0 +1,1 @@
+type Saves = dict[str, str]

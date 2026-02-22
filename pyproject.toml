@@ -1,0 +1,8 @@
+[tool.uv.workspace]
+members = [
+    "packages/vesp",
+    "packages/vespwood",
+    "packages/integrations/vespwood-anthropic",
+    "packages/integrations/vespwood-openai",
+    "packages/integrations/vespwood-gemini",
+]

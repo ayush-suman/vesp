@@ -1,0 +1,1 @@
+type Params = list[str | dict[str, str]]
