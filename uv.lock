@@ -682,7 +682,11 @@ wheels = [
 
 [[package]]
 name = "vesp"
+<<<<<<< Updated upstream
 version = "1.0.5"
+=======
+version = "1.0.2"
+>>>>>>> Stashed changes
 source = { editable = "packages/vesp" }
 dependencies = [
     { name = "vespwood" },
@@ -714,7 +718,11 @@ provides-extras = ["yaml", "openai", "google", "anthropic"]
 
 [[package]]
 name = "vespwood"
+<<<<<<< Updated upstream
 version = "1.0.4"
+=======
+version = "1.0.2"
+>>>>>>> Stashed changes
 source = { editable = "packages/vespwood" }
 
 [package.optional-dependencies]
