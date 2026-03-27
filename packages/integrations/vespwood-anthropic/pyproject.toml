@@ -23,5 +23,5 @@ yaml = [
 Homepage = "https://vespwood.com"
 Repository = "https://github.com/ayush-suman/vesp.git"
 
-[tool.uv.sources]
-vespwood = { workspace = true }
+[tool.hatch.build.targets.wheel]
+packages = ["src/vespwood_anthropic"]

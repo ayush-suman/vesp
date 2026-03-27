@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vespwood"
-version = "1.0.1"
+version = "1.0.5"
 description = "Declarative framework for LLMs"
 license = {text = "Apache"}
 readme = "README.md"
@@ -20,3 +20,5 @@ yaml = [
 Homepage = "https://vespwood.com"
 Repository = "https://github.com/ayush-suman/vesp.git"
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/vespwood"]

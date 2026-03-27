@@ -1,8 +1,14 @@
 [tool.uv.workspace]
 members = [
-    "packages/vesp",
     "packages/vespwood",
-    "packages/integrations/vespwood-anthropic",
-    "packages/integrations/vespwood-openai",
-    "packages/integrations/vespwood-google",
+    "packages/vesp",
+    "packages/integrations/*"
 ]
+
+[tool.uv.sources]
+vespwood = { workspace = true, editable = true }
+vesp = { workspace = true, editable = true }
+vespwood-openai = { workspace = true, editable = true }
+vespwood-google = { workspace = true, editable = true }
+vespwood-anthropic = {workspace = true, editable = true }
+

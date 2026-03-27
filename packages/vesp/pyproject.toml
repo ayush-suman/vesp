@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vesp"
-version = "1.0.2"
+version = "1.0.5"
 description = "Declarative framework for agents"
 license = {text = "Apache"}
 readme = "README.md"
@@ -34,9 +34,6 @@ anthropic = [
 Homepage = "https://vespwood.com"
 Repository = "https://github.com/ayush-suman/vesp.git"
 
-[tool.uv.sources]
-vespwood = { workspace = true }
-vespwood-openai = { workspace = true }
-vespwood-google = { workspace = true }
-vespwood-anthropic = {workspace = true }
 
+[tool.hatch.build.targets.wheel]
+packages = ["src/vesp"]
