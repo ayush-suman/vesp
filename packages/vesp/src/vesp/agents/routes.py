@@ -1,8 +1,8 @@
 from typing import Any, Callable, List, Optional, get_type_hints
 
 from vesp.invokation import Invokation
-from .agent import BaseAgent
-from .team import HandoverResponse, TeamLike, AgentsTeam
+from vesp.agents.agent import BaseAgent
+from vesp.agents.team import HandoverResponse, TeamLike, AgentsTeam
 
 
 def routes(entrypoint: str = "/"):

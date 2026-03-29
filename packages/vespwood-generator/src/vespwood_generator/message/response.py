@@ -1,5 +1,5 @@
-from vespwood.tag import Tag
-from vespwood.blocks import Block
+from vespwood_generator.tag import Tag
+from vespwood_generator.blocks import Block
 from .message import Message
 
 
@@ -28,5 +28,4 @@ class Response(Message):
             raise ValueError("This response is already tagged with", self._tag, "as tag")
         self._tag = Tag(other)
         return self
-    
     

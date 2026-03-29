@@ -1,6 +1,6 @@
 from typing import Callable, Any
 
-from .schematic import Schematic
+from vespwood_generator.schematic import Schematic
 
 
 class Tool[**I, O](Schematic):

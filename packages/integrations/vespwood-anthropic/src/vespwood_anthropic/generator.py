@@ -3,11 +3,11 @@ import json
 import os
 from typing import Any
 from anthropic import AsyncAnthropic, RateLimitError as AnthropicRateLimitError, omit
-from vespwood import (
+from vespwood_generator import (
+    ToolCall,
     message_converter, 
     Prompt, 
     Response,
-    ToolCall, 
     Generator, 
     Schema, 
     Tool, 
@@ -62,17 +62,10 @@ class AnthropicMessagesGenerator(Generator):
                 **kwargs):
         self.model_name = model
         self._model = AsyncAnthropic(api_key=api_key, timeout=timeout)
-        
-
-    def response_to_message(role: Role, response: str):
-        return [] if response == "" else [{"role": role, "content": response}]
     
 
-    async def __prompt__(self, messages: list[Prompt], schema: Schema | None = None, tools: list[Tool] | None = None, assistant_response = "", validator_response = "", **kwargs):
-
+    async def __prompt__(self, messages: list[Prompt], schema: Schema | None = None, tools: list[Tool] | None = None):
         prompts = _anthropic_messages_msg_converter(messages)
-        assistant_message = AnthropicMessagesGenerator.response_to_message("assistant", assistant_response)
-        validator_message = AnthropicMessagesGenerator.response_to_message("user", validator_response)
         
         output_format = omit
         if schema:
@@ -101,27 +94,20 @@ class AnthropicMessagesGenerator(Generator):
             message = await self._model.messages.create(
                 max_tokens=8192,
                 model=self.model_name,
-                messages=prompts + validator_message + assistant_message,
+                messages=prompts,
                 tools=anthropic_tools,
             ) if output_format == omit else await self._model.beta.messages.create(
                 max_tokens=8192,
                 model=self.model_name,
-                messages=prompts + validator_message + assistant_message,
+                messages=prompts,
                 tools=anthropic_tools,
                 output_format=output_format,
                 betas=["structured-outputs-2025-11-13"]
             )
 
-            assistant_response = assistant_response + message.content[0].text
-
             # Refusal
             if message.stop_reason == "refusal":
                 raise StopGeneration(f"Anthropic model {self.model_name} refused to respond to this request")
-            
-            # Unfinished Response
-            elif message.stop_reason == "max_tokens" or message.stop_reason == "model_context_window_exceeded":
-                print("Output token limit exceeded. Continuing generation...")
-                raise MaxTokenLimitError(assistant_response)
             
             # Tool Call
             response = Response([])
@@ -141,10 +127,12 @@ class AnthropicMessagesGenerator(Generator):
                     # TODO:
                     ...
 
+            # Unfinished Response
+            if message.stop_reason == "max_tokens" or message.stop_reason == "model_context_window_exceeded":
+                print("Output token limit exceeded. Continuing generation...")
+                raise MaxTokenLimitError(response.content)
+
             return response
         
         except AnthropicRateLimitError:
             raise RateLimitError()
-
-
-__all__ = ["AnthropicMessagesGenerator"]

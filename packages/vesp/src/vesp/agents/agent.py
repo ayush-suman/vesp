@@ -1,7 +1,8 @@
 import asyncio
 from pathlib import Path
-from typing import AsyncIterator, Callable, Concatenate, Literal, Any
+from typing import AsyncIterator, Callable, Concatenate, Iterator, Literal, Any
 from abc import ABCMeta, abstractmethod
+
 from vesp.invokation import Invokation
 from vespwood import (
     FormatKeys,
@@ -10,11 +11,12 @@ from vespwood import (
     Interceptor,
     Schema,
     Hook,
+    Tool,
     PreparedArgs, 
     TaggedMessages, 
     Completor,
-    Validator,
-    Schematic
+    Schematic,
+    Validator
 )
 import inspect
 
@@ -52,7 +54,7 @@ class Agent[O](BaseAgent, metaclass=AgentMeta):
     def __init__(self, *args, **kwargs):
         self._name = self.__class__.__name__
         self._description = self.__doc__
-        self._schema = Schematic.to_json_schema(self)
+        self._schema = Schematic.to_json_schema(self.__call__)
         super().__init__()
 
     @property
@@ -106,7 +108,7 @@ def agent[T: Agent](
         delay_constant: int = 0, 
         schemas: list[Schema] = [],
         validators: list[Validator] = [], 
-        tools: list[Invokable] = [], 
+        tools: list[Tool] = [], 
         hooks: list[Hook] = []):
     def decorator(cls: type[T]) -> type[T]:
         if not issubclass(cls, Agent):
@@ -170,7 +172,7 @@ def agent[T: Agent](
         return decorator
 
 
-def returns_args[**I, O](func: Callable[Concatenate[Agent[O], I], PreparedArgs]) -> Callable[Concatenate[Agent[O], I], Invokation[O]]:
+def returns_args[**I, O](func: Callable[Concatenate[Agent[O], I], Iterator[PreparedArgs]] | None = None)  -> Callable[Concatenate[Agent[O], I], Invokation[O]]:
     def fn(self: Agent[O], *args: I.args, **kwargs: I.kwargs) -> Invokation[O]:
         chain = Invokation()
         async def run_with():
@@ -183,15 +185,16 @@ def returns_args[**I, O](func: Callable[Concatenate[Agent[O], I], PreparedArgs])
                 completion_futures.append(future)
                 invokation_task = asyncio.create_task(self.invoke(prepared_args))
                 # Step 3: Handle Response
-                invokation_task.add_done_callback(lambda t: self.__get_output__(*t.result(), future=future, chain=chain))
+                invokation_task.add_done_callback(lambda t, future=future: self.__get_output__(*t.result(), future=future, chain=chain))
             return await asyncio.gather(*completion_futures)
         task = asyncio.create_task(run_with())
         task.add_done_callback(lambda _: chain.mark_completed())
         return chain
+    fn.__signature__ = inspect.signature(func)
     return fn
 
 
-def yields_args[**I, O](func: Callable[Concatenate[Agent[O], I], AsyncIterator[PreparedArgs]]) -> Callable[Concatenate[Agent[O], I], Invokation[O]]:
+def yields_args[**I, O](func: Callable[Concatenate[Agent[O], I], AsyncIterator[PreparedArgs]] | None = None) -> Callable[Concatenate[Agent[O], I], Invokation[O]]:
     def fn(self: Agent[O], *args: I.args, **kwargs: I.kwargs) -> Invokation[O]:
         chain = Invokation()
         async def run_with():
@@ -203,9 +206,10 @@ def yields_args[**I, O](func: Callable[Concatenate[Agent[O], I], AsyncIterator[P
                 completion_futures.append(future)
                 invokation_task = asyncio.create_task(self.invoke(prepared_args))
                 # Step 3: Handle Response
-                invokation_task.add_done_callback(lambda t: self.__get_output__(*t.result(), future=future, chain=chain))
+                invokation_task.add_done_callback(lambda t, future=future: self.__get_output__(*t.result(), future=future, chain=chain))
             return await asyncio.gather(*completion_futures)
         task = asyncio.create_task(run_with())
         task.add_done_callback(lambda _: chain.mark_completed())
         return chain
+    fn.__signature__ = inspect.signature(func)
     return fn

@@ -22,8 +22,8 @@ class Expression:
     def val(self):
         return self._val
     
-    def format(self, **kwargs):
-        _val = self._val.format(**kwargs)
+    def format_map(self, mapping):
+        _val = self._val.format_map(mapping)
         return Expression(self.op, _val)
 
     def __str__(self):
@@ -31,4 +31,27 @@ class Expression:
     
     def __repr__(self):
         return f"{self.op} {self.val}"
+    
 
+
+class BinaryExpression(Expression):
+    def __init__(self, lval: str, op: str, val: str):
+        self._lval = lval
+        super().__init__(op, val)
+
+    @classmethod
+    def from_expr(cls, expr: str):
+        lval, op, val = re.split(r"\s+", expr)
+        return cls(lval, op, val)
+
+    @property
+    def left(self):
+        return self._lval
+    
+    @property
+    def op(self):
+        return self._op
+    
+    @property
+    def right(self):
+        return self._val

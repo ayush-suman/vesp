@@ -1,8 +1,7 @@
 from enum import Enum
 from typing import Any, Callable, dataclass_transform, overload
-from vespwood._utils import setup_init
-from vespwood.errors import MissingSchemaError
-from .schematic import Schematic
+from vespwood_generator._utils import setup_init
+from vespwood_generator.schematic import Schematic
 
 
 class Schema[T](type[T], Schematic):
@@ -46,7 +45,7 @@ class Schema[T](type[T], Schematic):
                 if s.name == js["type"]:
                     s.__doc__ = js.get("description", s.__doc__)
                     return s
-            raise MissingSchemaError([js["type"]])
+            raise KeyError(js["type"])
         
         cls = None
 

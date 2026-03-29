@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, Protocol
-from vespwood.message import Response
+from vespwood_generator import Response
 from vespwood.tagged_messages import TaggedMessages
 
 

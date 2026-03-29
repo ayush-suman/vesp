@@ -58,7 +58,7 @@ def parse_exprs(mval: str, *, brackets=None) -> Logic | Expression | Any:
                 parts.append(parse_exprs(m, brackets=bra[1:-1]))
         return Logic(conj_start, parts)
         
-    match_list = re.findall(r"(?:!=|[<>]=?|~|[gl]te?|eq|not)\s*[{]?\w+[}]?", mval)
+    match_list = re.findall(r"(?:!=|[<>]=?|~|[gl]te?|eq|not)\s*[{]?[A-Za-z0-9_\-:?]+[}]?", mval)
     match(len(match_list)):
         case 0:
             return mval

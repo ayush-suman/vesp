@@ -1,6 +1,6 @@
 from typing import Any
-from vespwood.blocks import Block, Structured, ToolCall, Image, File
-from vespwood.types.role import Role
+from vespwood_generator.blocks import Block, Structured, ToolCall, Image, File
+from vespwood_generator.types import Role
 
 
 class Message:
@@ -37,6 +37,9 @@ class Message:
         self._content.append(block)
         if isinstance(block, Structured):
             self._structured.update(block)
+    
+    def extend(self, content: list[Block]):
+        for block in content: self.append(block)
 
     def __getitem__(self, key):
         if key in self._structured: return self._structured.__getitem__(key)

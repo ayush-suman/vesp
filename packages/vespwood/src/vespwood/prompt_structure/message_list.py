@@ -1,15 +1,12 @@
 from typing import Any
 
-from vespwood.message import Message, Prompt, Response
-from vespwood.tag import Tag
+from vespwood_generator import (
+    Tag, Message, Prompt, Response,
+    SchemaInfo, ToolsList, HooksList, ValidatorsList, Saves
+)
 from vespwood.format_object import FormatKeys
-from vespwood.types.schema_info import SchemaInfo
-from vespwood.types.tools_list import ToolsList
-from vespwood.types.hooks_list import HooksList
-from vespwood.types.validators_list import ValidatorsList
-from vespwood.types.saves import Saves
 from vespwood.tagged_messages import TaggedMessages
-from .prompt_structure import Msgs, PromptStructure
+from .prompt_structure import PromptStructure
 
 
 class MessageList(PromptStructure):
@@ -69,8 +66,8 @@ class MessageList(PromptStructure):
         return self._format_keys
     
 
-    def  get_prompt_list(self) -> tuple[Msgs, Tag | None, SchemaInfo | None, ToolsList | None, HooksList | None, ValidatorsList | None, Saves | None]:
-        msgs, tag, *rest = self.get_usables(self._format_keys, tagged_messages=self._tagged_messages)
+    def  get_prompt_list(self) -> tuple[list[Prompt], FormatKeys, Tag | None, SchemaInfo | None, ToolsList | None, HooksList | None, ValidatorsList | None, Saves | None]:
+        msgs, format_keys, tag, *rest = self.get_usables(self._format_keys, tagged_messages=self._tagged_messages)
         for prompt in msgs:
             if prompt.is_tagged:
                 if prompt.tag not in self._tagged_messages:
@@ -88,7 +85,7 @@ class MessageList(PromptStructure):
                         msgs.append(prompt)
                         return msgs, *([None] * 6)
 
-        return msgs, tag, *rest
+        return msgs, format_keys, tag, *rest
     
 
     def add_response(self, response: Response, *, keys: dict[str, Any] = {}):
@@ -96,7 +93,6 @@ class MessageList(PromptStructure):
         if any(isinstance(block, dict) for block in response):
             self.format_keys[response.tag] = list(filter(lambda b: isinstance(b, dict), response.content))[0]
         self._format_keys.update(keys)
-        print("Schemas", self._format_keys["schemas"])
 
 
     def update_message(self, tag: str, message: Message):
@@ -118,4 +114,3 @@ class MessageList(PromptStructure):
     def __str__(self):
         msgs, *_ = self.get_usables(self._format_keys, tagged_messages=self._tagged_messages)
         return str(msgs)        
-

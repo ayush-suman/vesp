@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 
 from .caller import Caller
 
-from vespwood.schematic import Tool
+from vespwood_generator import Tool
 
 # TODO: Change impl
 # TODO: Create Lazy Schematic, Lazy Invokable and Lazy Tool for this

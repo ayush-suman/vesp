@@ -2,8 +2,9 @@ from abc import abstractmethod
 import asyncio
 from typing import List, Optional, Callable, Dict, Any, Tuple, TypeVar, Type
 from vesp.invokation import Invokation, Output
-from .agent import BaseAgent
+from vesp.agents.agent import BaseAgent
 from vesp.visibility import Visibility
+
 
 type AgentLike = BaseAgent | Callable[..., BaseAgent]
 type TeamLike = Dict[str, "TeamLike" | AgentLike]

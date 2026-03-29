@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Any, Literal
-from .expression import Expression
+from vespwood.expression import Expression
 
 
 class Logic:
@@ -25,11 +25,11 @@ class Logic:
     def exprs(self):
         return self._exprs
     
-    def format(self, **kwargs):
+    def format_map(self, mapping):
         _exprs = []
         for expr in self.exprs:
             if isinstance(expr, str) or isinstance(expr, Expression) or isinstance(expr, Logic):
-                _exprs.append(expr.format(**kwargs))
+                _exprs.append(expr.format_map(mapping))
             else:
                 _exprs.append(expr)
         return Logic(self.conj, _exprs)

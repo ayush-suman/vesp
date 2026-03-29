@@ -1,54 +1,173 @@
 from abc import ABC, abstractmethod
-from typing import Any, Protocol, overload
-from vespwood.message import Prompt, Response
-from vespwood.types.hooks_list import HooksList
-from vespwood.types.saves import Saves
-from vespwood.types.schema_info import SchemaInfo
-from vespwood.types.tools_list import ToolsList
-from vespwood.types.validators_list import ValidatorsList
-from vespwood.tag import Tag
+import inspect
+from typing import Protocol, TypeAlias, overload
+from vespwood_generator import (
+    Tag, Prompt, Response,
+    HooksList, Saves, SchemaInfo, ToolsList, ValidatorsList
+)
+from vespwood.format_object import FormatKeys
 
 
 class OnResponse(Protocol):
-    @overload
-    def __call__(self, response: Response):
-        ...
+    def __call__(self, response: Response) -> None: ...
 
-    @overload
-    def __call__(self, response: Response):
-        ...
+
+class AsyncOnResponse(Protocol):
+    async def __call__(self, response: Response) -> None: ...
+
+
+ResponseHandler: TypeAlias = OnResponse | AsyncOnResponse
 
 
 class InterceptorFn(Protocol):
-    @overload
-    async def __call__(self, prompts: list[Prompt], tag: Tag, schema: SchemaInfo | None = None, tools: ToolsList | None = None, hooks: HooksList | None = None, validators: ValidatorsList | None = None, saves: Saves | None = None, format_keys: dict[str, Any] = {}) -> OnResponse | None:
-        ...
+    def __call__(
+        self,
+        prompts: list[Prompt],
+        format_keys: FormatKeys,
+        tag: Tag,
+        schema: SchemaInfo | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        saves: Saves | None = None,
+    ) -> ResponseHandler | None: ...
 
-    @overload
-    def __call__(self, prompts: list[Prompt], tag: Tag, schema: SchemaInfo | None = None, tools: ToolsList | None = None, hooks: HooksList | None = None, validators: ValidatorsList | None = None, saves: Saves | None = None, format_keys: dict[str, Any] = {}) -> OnResponse | None:
-        ...
+
+class AsyncInterceptorFn(Protocol):
+    async def __call__(
+        self,
+        prompts: list[Prompt],
+        format_keys: FormatKeys,
+        tag: Tag,
+        schema: SchemaInfo | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        saves: Saves | None = None,
+    ) -> ResponseHandler | None: ...
 
 
 class Interceptor(ABC, InterceptorFn):
     @abstractmethod
-    def intercept(self, prompts: list[Prompt], tag: Tag, schema: SchemaInfo | None = None, tools: ToolsList | None = None, hooks: HooksList | None = None, validators: ValidatorsList | None = None, saves: Saves | None = None, format_keys: dict[str, Any] = {}) -> OnResponse | None:
+    def intercept(
+        self,
+        prompts: list[Prompt],
+        format_keys: FormatKeys,
+        tag: Tag,
+        schema: SchemaInfo | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        saves: Saves | None = None,
+    ) -> ResponseHandler | None:
         ...
 
-    def __call__(self, prompts: list[Prompt], tag: Tag, schema: SchemaInfo | None = None, tools: ToolsList | None = None, hooks: HooksList | None = None, validators: ValidatorsList | None = None, saves: Saves | None = None, format_keys: dict[str, Any] = {}) -> OnResponse | None:
-        return self.intercept(prompts, tag, schema, tools, hooks, validators, saves, format_keys)
-    
+    def __call__(
+        self,
+        prompts: list[Prompt],
+        format_keys: FormatKeys,
+        tag: Tag,
+        schema: SchemaInfo | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        saves: Saves | None = None,
+    ) -> ResponseHandler | None:
+        return self.intercept(
+            prompts, format_keys, tag, schema, tools, hooks, validators, saves
+        )
 
-def interceptor(func: InterceptorFn):
-    def wrapper(fn: InterceptorFn):
+
+class AsyncInterceptor(ABC, AsyncInterceptorFn):
+    @abstractmethod
+    async def intercept(
+        self,
+        prompts: list[Prompt],
+        format_keys: FormatKeys,
+        tag: Tag,
+        schema: SchemaInfo | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        saves: Saves | None = None,
+    ) -> ResponseHandler | None:
+        ...
+
+    async def __call__(
+        self,
+        prompts: list[Prompt],
+        format_keys: FormatKeys,
+        tag: Tag,
+        schema: SchemaInfo | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        saves: Saves | None = None,
+    ) -> ResponseHandler | None:
+        return await self.intercept(
+            prompts, format_keys, tag, schema, tools, hooks, validators, saves
+        )
+
+
+@overload
+def interceptor(func: InterceptorFn) -> Interceptor: ...
+
+
+@overload
+def interceptor(func: AsyncInterceptorFn) -> AsyncInterceptor: ...
+
+
+def interceptor(func: InterceptorFn | AsyncInterceptorFn) -> Interceptor | AsyncInterceptor:
+    if inspect.iscoroutinefunction(func):
+        class Wrapper(AsyncInterceptor):
+            async def intercept(
+                self,
+                prompts: list[Prompt],
+                format_keys: FormatKeys,
+                tag: Tag,
+                schema: SchemaInfo | None = None,
+                tools: ToolsList | None = None,
+                hooks: HooksList | None = None,
+                validators: ValidatorsList | None = None,
+                saves: Saves | None = None,
+            ) -> ResponseHandler | None:
+                return await func( 
+                    prompts,
+                    format_keys,
+                    tag,
+                    schema,
+                    tools,
+                    hooks,
+                    validators,
+                    saves,
+                )
+
+    else:
         class Wrapper(Interceptor):
-            def intercept(self, prompts, tag, schema = None, tools = None, hooks = None, validators = None, saves = None, format_keys = {}) -> OnResponse | None:
-                return fn(prompts, tag, schema, tools, hooks, validators, saves, format_keys)
-        
-        Wrapper.__class__.__qualname__ = fn.__qualname__
-        Wrapper.__class__.__name__ = fn.__name__
-        return Wrapper()
-    wrapper.__qualname__ = func.__qualname__
-    wrapper.__name__ = func.__name__
-    return wrapper(func) if func else wrapper
-            
+            def intercept(
+                self,
+                prompts: list[Prompt],
+                format_keys: FormatKeys,
+                tag: Tag,
+                schema: SchemaInfo | None = None,
+                tools: ToolsList | None = None,
+                hooks: HooksList | None = None,
+                validators: ValidatorsList | None = None,
+                saves: Saves | None = None,
+            ) -> ResponseHandler | None:
+                return func( 
+                    prompts,
+                    format_keys,
+                    tag,
+                    schema,
+                    tools,
+                    hooks,
+                    validators,
+                    saves,
+                )
+
+    Wrapper.__name__ = func.__name__
+    Wrapper.__qualname__ = func.__qualname__
+    Wrapper.__module__ = func.__module__
+    return Wrapper()
 

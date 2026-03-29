@@ -1,15 +1,9 @@
 
 from typing import Any
 
-from vespwood.types.params import Params
-from vespwood.types.hooks_list import HooksList
-from vespwood.types.role import Role
-from vespwood.types.saves import Saves
-from vespwood.types.schema_info import SchemaInfo
-from vespwood.types.tools_list import ToolsList
-from vespwood.types.validators_list import ValidatorsList
-from vespwood.tag import Tag
-from vespwood.blocks import File, Image, ToolCall
+from vespwood_generator.types import Params, HooksList, SchemaInfo, ToolsList, ValidatorsList, Saves, Role
+from vespwood_generator.tag import Tag
+from vespwood_generator.blocks import File, Image, ToolCall
 from .message import Message
 
 
@@ -120,6 +114,7 @@ class Prompt(Message):
             tools=self._tools.copy() if self._tools else None,
             schema=self._schema.copy() if isinstance(self._schema, dict) else self._schema,
             hooks=self._hooks.copy() if self._hooks else None,
+            validators=self._validators.copy() if self._validators else None,
             saves=self._saves.copy() if self._saves else None)
         if self.is_tagged: 
             prompt @= self.tag

@@ -4,25 +4,22 @@ import uuid
 
 from typing import Any, List, Dict, Self, TextIO
 
-from vespwood.parse_expr import parse_dict, parse_exprs
+from vespwood.parse_expr import parse_exprs, parse_dict
 from vespwood.match import match
 from vespwood.expression import Expression
 from vespwood.logic import Logic
 from vespwood.format_object import FormatKeys
-from vespwood.message import Message, Prompt
-from vespwood.tag import Tag
-from vespwood.types.schema_info import SchemaInfo
-from vespwood.types.tools_list import ToolsList
-from vespwood.types.hooks_list import HooksList
-from vespwood.types.validators_list import ValidatorsList
-from vespwood.types.saves import Saves
+from vespwood_generator import(
+    Tag, Message, Prompt,
+    SchemaInfo, ToolsList, HooksList, ValidatorsList, Saves
+)
+
 
 type PromptStructureDataUnit = Dict[str, "PromptStructureData" | str]
 type PromptStructureData = List[PromptStructureDataUnit | str] | PromptStructureDataUnit
 
 type PromptLike = Prompt | PromptStructure
 
-type Msgs = list[Prompt]
 
 class PromptStructure(list[PromptLike]):
     def keys(self):
@@ -83,7 +80,6 @@ class PromptStructure(list[PromptLike]):
         print("Match", self._match, type(self._match), self._params)
         if isinstance(self._match, str) or isinstance(self._match, Expression) or isinstance(self._match, Logic):
             if self._params:
-                print("Params", self._params)
                 mapping = format_keys.get_params(self._params)
                 self._match = self._match.format_map(mapping)
         result = match(value, self._match)
@@ -356,8 +352,8 @@ class PromptStructure(list[PromptLike]):
                     new_self.append(prompt.copy())
         return new_self
         
-
-    def get_usables(self, format_keys: FormatKeys, /, tagged_messages: dict[str, Message] = {}) -> tuple[Msgs, Tag | None, SchemaInfo | None, ToolsList | None, HooksList | None, ValidatorsList | None, Saves | None]:
+    # TODO: Change FormatKeys to CompletedArgs (alias of dict[str, Any])
+    def get_usables(self, format_keys: FormatKeys, /, tagged_messages: dict[str, Message] = {}) -> tuple[list[Prompt], FormatKeys, Tag | None, SchemaInfo | None, ToolsList | None, HooksList | None, ValidatorsList | None, Saves | None]:
         prompt_structure = self.copy()
         msgs: list[Prompt] = []
         allNone = ([None] * 6)
@@ -387,10 +383,11 @@ class PromptStructure(list[PromptLike]):
                         extra_keys.update({co_iter_keys[idx]: default_co_iter_values[idx] if default_co_iter_values else None})
                     else:
                         extra_keys.update({co_iter_keys[idx]: co_iterator[index]})
-                prompts, tag, *rest = indexed_structure.get_usables(format_keys.copy_with_extra(**extra_keys), tagged_messages=tagged_messages)
+                format_keys = format_keys.copy_with_extra(**extra_keys)
+                prompts, format_keys, tag, *rest = indexed_structure.get_usables(format_keys, tagged_messages=tagged_messages)
                 msgs.extend(prompts)
-                if tag: return msgs, tag, *rest
-            return msgs, *allNone
+                if tag: return msgs, format_keys, tag, *rest
+            return msgs, format_keys, *allNone
         
         # Switch
         elif prompt_structure.is_switch:
@@ -432,20 +429,21 @@ class PromptStructure(list[PromptLike]):
                     structure = prompt_structure.normalised
                 indexed_structure = structure.indexed(index)
                 extra_keys = { index_key: index }
-                prompts, tag, *rest = indexed_structure.get_usables(format_keys.copy_with_extra(**extra_keys), tagged_messages=tagged_messages)
+                format_keys = format_keys.copy_with_extra(**extra_keys)
+                prompts, format_keys, tag, *rest = indexed_structure.get_usables(format_keys, tagged_messages=tagged_messages)
                 msgs.extend(prompts)
                 if not f"{prompt_structure._while}?{self._id}#{index}" in format_keys:
                     format_keys[f"{prompt_structure._while}?{self._id}#{index}"] = case_data
-                if tag: return msgs, tag, *rest
+                if tag: return msgs, format_keys, tag, *rest
                 index += 1
-            return msgs, *allNone
+            return msgs, format_keys, *allNone
 
         # Normal
         for prompt in prompt_structure:
             if isinstance(prompt, PromptStructure):
-                prompts, tag, *rest = prompt.get_usables(format_keys, tagged_messages=tagged_messages)
+                prompts, format_keys, tag, *rest = prompt.get_usables(format_keys, tagged_messages=tagged_messages)
                 msgs.extend(prompts)
-                if tag: return msgs, tag, *rest
+                if tag: return msgs, format_keys, tag, *rest
             else:
                 if prompt.params:
                     mapping = format_keys.get_params(prompt._params)
@@ -457,7 +455,7 @@ class PromptStructure(list[PromptLike]):
                         prompt.update_message(message)
                     if prompt.response_awaited:
                         print("Returning ", tag, "for prompt", prompt)
-                        return msgs, tag, prompt.schema, prompt.tools, prompt.hooks, prompt.validators, prompt.saves    
+                        return msgs, format_keys, tag, prompt.schema, prompt.tools, prompt.hooks, prompt.validators, prompt.saves    
                 msgs.append(prompt)
 
-        return msgs, *allNone
+        return msgs, format_keys, *allNone

@@ -3,8 +3,8 @@ from typing import Callable, Any
 
 from vesp.visibility import Visibility
 from vesp.invokation import Invokation
-from .agent import BaseAgent
-from .team import AgentsTeam, HandoverResponse
+from vesp.agents.agent import BaseAgent
+from vesp.agents.team import AgentsTeam, HandoverResponse
 from vespwood import Completor, GeneratorClass, Generator
 
 

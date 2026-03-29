@@ -2,21 +2,21 @@ import inspect
 from pathlib import Path
 from typing import Any, TextIO
 import asyncio
-from vespwood.types.prepared_args import PreparedArgs
-from vespwood.generator import Generator
+from vespwood_generator import (
+    Generator,
+    Schema, Tool,
+    Validator,
+    Response,
+    Structured, ToolCall,
+    PreparedArgs, HooksList,
+)
 from vespwood._utils import invoke_funcs
 from vespwood.interceptor import Interceptor
 from vespwood.format_object import FormatKeys
-from vespwood.blocks import Structured, ToolCall
 from vespwood.tagged_messages import TaggedMessages
 from vespwood.hook import Hook
-from vespwood.schematic import Schema, Tool
-from vespwood.message import Prompt, Response
-from vespwood.validator import Validator
 from vespwood.prompt_structure import PromptStructure, MessageList
-from vespwood.types.hooks_list import HooksList
 from vespwood.errors import StopGeneration, MissingParamError, MissingSchemaError, MissingToolError, MissingHookError, MissingValidatorError
-
 import bisect
 
 
@@ -46,6 +46,7 @@ class Completor:
             src_file = caller_frame.filename
             path = Path(prompt_structure)
             if not path.is_absolute() and not path.is_file():
+                print(f"Resolving prompt structure path {path} relative to {src_file}")
                 path = (Path(src_file).parent / path)
                 prompt_structure = str(path)
             file: TextIO = open(prompt_structure, "r", encoding="utf-8")
@@ -55,7 +56,10 @@ class Completor:
                 prompt_structure = json.load(file)
             # Load from YAML file
             elif prompt_structure.endswith(".yaml"):
-                import yaml
+                try:
+                    import yaml # type: ignore
+                except e:
+                    raise ImportError("To load from prompt structure from a yaml file, you need to install the optional dependency yaml. Try running 'pip install vespwood[yaml]'") from None
                 prompt_structure = yaml.safe_load(file)
         
         if isinstance(prompt_structure, dict):
@@ -69,7 +73,10 @@ class Completor:
             if diff := set(filter(lambda s: isinstance(s, str), schema_list)) - schema_names:
                 raise MissingSchemaError(diff)
             for s in filter(lambda s: isinstance(s, dict), schema_list):
-                schemas.append(Schema.from_json_schema(**s, schemas=schemas))
+                try:
+                    schemas.append(Schema.from_json_schema(**s, schemas=schemas))
+                except KeyError as e:
+                    raise MissingSchemaError([*e.args])
             schemas.sort(key=lambda s: s.name)
             self._schemas: list[Schema] = schemas
 
@@ -173,18 +180,18 @@ class Completor:
 
     async def __complete__(self, prepared_args: PreparedArgs) -> tuple[TaggedMessages, FormatKeys]:
         message_list = MessageList.from_prompt_structure(self._prompt_structure, keys=prepared_args)
-        prompts, tag, schema, tools, hooks, validators, saves = message_list.get_prompt_list()
+        prompts, format_keys, tag, schema, tools, hooks, validators, saves = message_list.get_prompt_list()
         while tag:
             on_response_callbacks = await invoke_funcs(
                 self._interceptors,
-                prompts, 
+                prompts,
+                format_keys, 
                 tag, 
                 schema, 
                 tools, 
                 hooks, 
                 validators, 
-                saves, 
-                message_list.format_keys
+                saves
             )
             for prompt in prompts:
                 for block in prompt:
@@ -203,7 +210,10 @@ class Completor:
                         raise MissingSchemaError([schema])
                     _schema = self.schemas[i]
                 else:
-                    _schema = Schema.from_json_schema(schema["name"], schema.get("json_schema"), description=schema.get("description"), schemas=self.schemas)
+                    try:
+                        _schema = Schema.from_json_schema(schema["name"], schema.get("json_schema"), description=schema.get("description"), schemas=self.schemas)
+                    except KeyError as e:
+                        raise MissingSchemaError([*e.args]) 
 
             _tools = []
             if tools:
@@ -231,21 +241,21 @@ class Completor:
             if validators:
                 for validator in validators:
                     i = bisect.bisect_left(self.validators, validator, key=lambda v: v.name)
-                    if i == len(self.validators) or self.validators[i] != validator:
-                        raise MissingHookError([validator])
+                    if i == len(self.validators) or self.validators[i].name != validator:
+                        raise MissingValidatorError([validator])
                     _validator = self.validators[i]
                     _validators.append(_validator)
              
             try:
                 response = await self._generator.get_response(
                     prompts, 
+                    format_keys, 
                     _schema, 
                     _tools, 
                     _validators, 
                     self._continue_on_max_token, 
                     self._retry_on_rate_limit, 
                     self._retry_with_delay,
-                    **message_list.format_keys, 
                 ) @ tag
                 await invoke_funcs(list(filter(lambda c: c is not None, on_response_callbacks)), response)
                 saved_keys = {}
@@ -256,17 +266,13 @@ class Completor:
                                 saved_keys[v] = content[k]
                 message_list.add_response(response, keys=saved_keys)
                 if hooks:
-                    keys = self._invoke_hooks(hooks, response, message_list.tagged_messages, message_list.format_keys)
+                    keys = self._invoke_hooks(hooks, response, message_list.tagged_messages, format_keys)
                     message_list.add_keys(keys)
-                prompts, tag, schema, tools, hooks, validators, saves = message_list.get_prompt_list()
+
+                prompts, format_keys, tag, schema, tools, hooks, validators, saves = message_list.get_prompt_list()
                 print("Received tag", tag)
 
             except StopGeneration as e:
-                if e.response: 
-                    message_list.add_response(response, keys=saved_keys)
-                    if hooks:
-                        keys = self._invoke_hooks(hooks, e.response, message_list.tagged_messages, message_list.format_keys)
-                        message_list.add_keys(keys)
                 await self._generation_queue.get()
                 return message_list.tagged_messages, message_list.format_keys
             

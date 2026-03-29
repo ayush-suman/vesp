@@ -1,7 +1,9 @@
-from vespwood.message import Message
+from vespwood_generator import Message
 from vespwood._utils import get_key_index
 
+
 type MessageGroup = Message | list[MessageGroup]
+
 
 class TaggedMessages(dict[str, MessageGroup]):
     def __init__(self, value: dict[str, Message] = {}):

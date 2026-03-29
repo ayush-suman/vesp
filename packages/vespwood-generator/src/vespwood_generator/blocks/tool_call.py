@@ -2,8 +2,6 @@ import copy
 import json
 from typing import Any
 
-from vespwood.schematic import Tool
-
 
 class ToolCall:
     __slots__ = "_id", "_name", "_arguments", "_result"
@@ -40,14 +38,8 @@ class ToolCall:
         if self.result:
            raise ValueError("Result already set for tool", self._name) 
         self._result = result
-
-
-    def load_with_result(self, *tools: Tool):
-        for tool in tools:
-            if tool.name == self._name:
-                self._result = tool(**self._arguments)
-                return
             
+    
     @property
     def json(self):
         if self.result:

@@ -2,7 +2,7 @@ import json
 import os
 
 from openai import NOT_GIVEN, AsyncOpenAI, RateLimitError as OpenAIRateLimitError
-from vespwood import (
+from vespwood_generator import (
     message_converter, 
     Prompt, 
     Response,
@@ -11,10 +11,7 @@ from vespwood import (
     Generator, 
     Schema, 
     Tool, 
-    Role, 
     RateLimitError, 
-    MaxTokenLimitError, 
-    StopGeneration
 )
 
 
@@ -62,15 +59,9 @@ class OpenAIResponsesGenerator(Generator):
         self.model_name = model
         self._model = AsyncOpenAI(api_key=api_key, timeout=timeout)
 
-    @classmethod
-    def response_to_message(cls, role: Role, response: str):
-        return [] if response == "" else [{"role": role, "content": response}]
 
-
-    async def __prompt__(self, messages: list[Prompt], schema: Schema | None = None, tools: list[Tool] | None = None, assistant_response: str = "", validator_response: str = "", **kwargs) -> Response:
+    async def __prompt__(self, messages: list[Prompt], schema: Schema | None = None, tools: list[Tool] | None = None) -> Response:
         prompts = _openai_response_msg_converter(messages)
-        assistant_message = OpenAIResponsesGenerator.response_to_message("assistant", assistant_response)
-        validator_message = OpenAIResponsesGenerator.response_to_message("user", validator_response)
         
         output_format = NOT_GIVEN
         if schema:
@@ -93,13 +84,11 @@ class OpenAIResponsesGenerator(Generator):
         try:
             response = await self._model.responses.create(
                 model=self.model_name,
-                input=prompts + validator_message + assistant_message,
+                input=prompts,
                 tools=openai_tools,
                 text={"format": output_format},
                 store=False
             )
-            print("Respone Output", response.output)
-            assistant_response = assistant_response + response.output_text
             
             # Unfinished Response
             # if response.stop_reason == "max_tokens" or response.stop_reason == "model_context_window_exceeded":

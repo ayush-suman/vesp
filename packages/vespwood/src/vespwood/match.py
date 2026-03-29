@@ -36,7 +36,6 @@ def match(val: Any, mval: Logic | Expression | Any):
             case ">=" | "gte":
                 return int(val) >= int(mval.val)
             case "<" | "lt":
-                print("Returning")
                 return int(val) < int(mval.val)
             case "<=" | "lte":
                 return int(val) <= int(mval.val)

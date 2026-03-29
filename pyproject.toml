@@ -1,11 +1,13 @@
 [tool.uv.workspace]
 members = [
+    "packages/vespwood-generator",
     "packages/vespwood",
     "packages/vesp",
     "packages/integrations/*"
 ]
 
 [tool.uv.sources]
+vespwood-generator = { workspace = true, editable = true }
 vespwood = { workspace = true, editable = true }
 vesp = { workspace = true, editable = true }
 vespwood-openai = { workspace = true, editable = true }

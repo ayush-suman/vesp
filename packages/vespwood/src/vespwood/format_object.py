@@ -1,10 +1,12 @@
 from typing import Any
 from vespwood.prompt_mapping import PromptMapping
-from vespwood.types.params import Params
+from vespwood_generator import Params
 from vespwood._utils import get_key_index
 
 
 def deep_convert(data: Any) -> Any:
+    if data is None: return None
+    
     if isinstance(data, dict) and not isinstance(data, FormatKeys):
         return FormatKeys({k: deep_convert(v) for k, v in data.items()})
     if isinstance(data, list) and not isinstance(data, FormatList):

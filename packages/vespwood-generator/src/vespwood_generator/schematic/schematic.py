@@ -4,7 +4,7 @@ import inspect
 from types import UnionType
 from typing import Annotated, get_type_hints, get_origin, get_args, Union, List, Dict, Literal, Any
 from typing_extensions import Doc
-from vespwood._utils import setup_init
+from vespwood_generator._utils import setup_init
 
 
 class Schematic(ABC):
