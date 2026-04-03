@@ -1,7 +1,7 @@
 from typing import Any, Callable, List, Optional, get_type_hints
 
 from vesp.invokation import Invokation
-from vesp.agents.agent import BaseAgent
+from vesp.agents.base import BaseAgent
 from vesp.agents.team import HandoverResponse, TeamLike, AgentsTeam
 
 

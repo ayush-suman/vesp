@@ -1,15 +1,9 @@
+from typing import TypeAlias
+
 from .file import File
 from .image import Image
 from .structured import Structured
 from .tool_call import ToolCall
-from .block import Block
 
 
-
-__all__ = [
-    "File",
-    "Image",
-    "Structured",
-    "ToolCall",
-    "Block"
-]
+Block: TypeAlias = str | Structured | ToolCall | Image | File

@@ -83,7 +83,7 @@ class MessageList(PromptStructure):
                     prompt.update_message(message)
                     if not prompt.response_awaited:
                         msgs.append(prompt)
-                        return msgs, *([None] * 6)
+                        return msgs, format_keys, *([None] * 6)
 
         return msgs, format_keys, tag, *rest
     

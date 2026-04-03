@@ -1,3 +1,3 @@
-from typing import Literal
+from typing import Literal, TypeAlias
 
-type Role = Literal["system", "user", "assistant"]
+Role: TypeAlias = Literal["system", "user", "assistant"]

@@ -1,10 +1,11 @@
 from enum import Enum
-from typing import Any, Callable, dataclass_transform, overload
+from typing import Any, Callable, dataclass_transform, overload, Generic, TypeVar
 from vespwood_generator._utils import setup_init
 from vespwood_generator.schematic import Schematic
 
+T = TypeVar('T')
 
-class Schema[T](type[T], Schematic):
+class Schema(type[T], Schematic, Generic[T]):
     _name: str
     _description: str | None
     _schema: dict[str, Any]
@@ -118,16 +119,17 @@ class Schema[T](type[T], Schematic):
     def __init__(cls, name, bases=(), ns={}, **kwargs):
         super().__init__(name, bases, ns, **kwargs)
 
-    
+
+S = TypeVar("S")    
 
 @dataclass_transform(kw_only_default=True, frozen_default=True)
 @overload
-def schema[T](cls: type[T], /, *, name: str | None = None, description: str | None = None) -> Schema[T]: ...
+def schema(cls: type[S], /, *, name: str | None = None, description: str | None = None) -> Schema[S]: ...
 @overload
-def schema[T](cls: None = None, /, *, name: str | None = None, description: str | None = None) -> Callable[[type[T]], Schema[T]]: ...
+def schema(cls: None = None, /, *, name: str | None = None, description: str | None = None) -> Callable[[type[S]], Schema[S]]: ...
 
-def schema[T](cls: type[T] | None = None, /, *, name: str | None = None, description: str | None = None):
-    def wrapper(cls) -> Schema[T]: 
+def schema(cls: type[S] | None = None, /, *, name: str | None = None, description: str | None = None):
+    def wrapper(cls) -> Schema[S]: 
         CombinedMeta = Schema
         if cls.__bases__:
             meta = [type(base) for base in cls.__bases__]

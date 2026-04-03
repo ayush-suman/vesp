@@ -97,7 +97,6 @@ class OpenAIChatCompletionGenerator(Generator):
                 "strict": True
             }
         } for tool in tools]
-        print("Messages", prompts)
 
         try:
             response = await self._model.chat.completions.create(

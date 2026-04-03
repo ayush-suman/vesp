@@ -1,7 +1,9 @@
-from asyncio import Protocol
+from typing import TypeVar, Protocol
+
+T = TypeVar("T")
 
 
-class Caller[T](Protocol):
+class Caller(Protocol[T]):
     def __getitem__(self, name: str) -> T:
         return self.__call__(name)
     

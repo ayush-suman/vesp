@@ -1,3 +1,5 @@
-type ToolObject = dict # TODO: Change to TypedDict
+from typing import TypeAlias
 
-type ToolsList = list[ToolObject | str]
+ToolObject: TypeAlias = dict # TODO: Change to TypedDict
+
+ToolsList: TypeAlias = list[ToolObject | str]

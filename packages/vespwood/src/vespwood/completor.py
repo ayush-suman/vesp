@@ -46,7 +46,6 @@ class Completor:
             src_file = caller_frame.filename
             path = Path(prompt_structure)
             if not path.is_absolute() and not path.is_file():
-                print(f"Resolving prompt structure path {path} relative to {src_file}")
                 path = (Path(src_file).parent / path)
                 prompt_structure = str(path)
             file: TextIO = open(prompt_structure, "r", encoding="utf-8")

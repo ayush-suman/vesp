@@ -1,9 +1,9 @@
 from abc import abstractmethod
-from typing import Callable, Any
+from typing import Callable, Any, TypeVar
 
 from vesp.visibility import Visibility
 from vesp.invokation import Invokation
-from vesp.agents.agent import BaseAgent
+from vesp.agents.agent.agent import BaseAgent
 from vesp.agents.team import AgentsTeam, HandoverResponse
 from vespwood import Completor, GeneratorClass, Generator
 
@@ -19,8 +19,7 @@ class GoalSeakerTeam(AgentsTeam):
     
     
     @abstractmethod
-    def create_channels(self) -> dict[str, list[str]]:
-        pass
+    def create_channels(self) -> dict[str, list[str]]: ...
 
 
     def handover(self, route: str, output: Any, chain: list[Invokation]) -> list[HandoverResponse] | None:
@@ -28,7 +27,9 @@ class GoalSeakerTeam(AgentsTeam):
 
 
 
-def goal_seaker_team[T: GoalSeakerTeam](cls: type[T] | None = None, /, *, entrypoint: str = "/", generator: GeneratorClass | Generator | None):
+T = TypeVar("T", bound=GoalSeakerTeam)
+
+def goal_seaker_team(cls: type[T] | None = None, /, *, entrypoint: str = "/", generator: GeneratorClass | Generator | None):
     def decorator(cls: type[T]) -> type[T]:
         # Assert class is GoalSeakerTeam subclass
         if not issubclass(cls, GoalSeakerTeam):

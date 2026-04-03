@@ -146,7 +146,6 @@ class FormatKeys(dict[str, Any], FormatObject):
             parts = key.split("?")
             assert len(parts) == 2
             object = self.__getitem__(parts[0])
-            print(list(self.keys()), object)
             if object is None:
                 raise ValueError(f"To set extra {parts[1]} at {parts[0]}, there should be some value present at {parts[0]}")
             assert isinstance(object, FormatObject)

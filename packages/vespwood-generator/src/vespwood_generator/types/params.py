@@ -1,1 +1,3 @@
-type Params = list[str | dict[str, str]]
+from typing import TypeAlias
+
+Params: TypeAlias = list[str | dict[str, str]]

@@ -1,8 +1,9 @@
 import asyncio
 from pathlib import Path
-from typing import AsyncIterator, Callable, Concatenate, Iterator, Literal, Any
-from abc import ABCMeta, abstractmethod
+from typing import Any, TypeVar, Generic
+from abc import abstractmethod
 
+from vesp.agents import BaseAgent
 from vesp.invokation import Invokation
 from vespwood import (
     FormatKeys,
@@ -21,36 +22,10 @@ from vespwood import (
 import inspect
 
 
-class AgentMeta(ABCMeta):
-    def __sub__(cls, other: Literal["public", "private"]) -> "AgentMeta":
-        class ScopedAgent(cls):
-            _accessibility = other
-
-        ScopedAgent.__class__.__name__ = cls.__name__
-        ScopedAgent.__class__.__qualname__ = cls.__qualname__
-        return ScopedAgent
-
-        
-
-class BaseAgent(Schematic, metaclass=AgentMeta):  
-    _accessibility = "private"
-
-    def __sub__(self, other: Literal["public", "private"]) -> "BaseAgent":
-        self._accessibility = other
-        return self
+O = TypeVar("O")
 
 
-    @property
-    def is_public(self):
-        return self._accessibility == "public"
-
-
-    @abstractmethod
-    def __call__(self, *args, **kwargs) -> Invokation:
-        pass
-
-
-class Agent[O](BaseAgent, metaclass=AgentMeta):
+class Agent(BaseAgent, Generic[O]):
     def __init__(self, *args, **kwargs):
         self._name = self.__class__.__name__
         self._description = self.__doc__
@@ -99,8 +74,9 @@ class Agent[O](BaseAgent, metaclass=AgentMeta):
         task.add_done_callback(lambda _: chain.mark_completed())
         return chain
     
+T = TypeVar("T", bound=Agent)
 
-def agent[T: Agent](
+def agent(
         cls: type[T] | None = None, /, *,
         generator: GeneratorClass | Generator | None, 
         prompt_structure: str | None = None, 
@@ -172,44 +148,7 @@ def agent[T: Agent](
         return decorator
 
 
-def returns_args[**I, O](func: Callable[Concatenate[Agent[O], I], Iterator[PreparedArgs]] | None = None)  -> Callable[Concatenate[Agent[O], I], Invokation[O]]:
-    def fn(self: Agent[O], *args: I.args, **kwargs: I.kwargs) -> Invokation[O]:
-        chain = Invokation()
-        async def run_with():
-            completion_futures: list[asyncio.Future] = []
-            # Step 1: Prepare Args
-            prepared_args_list = await func(self, *args, **kwargs)
-            for prepared_args in prepared_args_list:
-                #Step 2: Invoke
-                future = asyncio.Future()
-                completion_futures.append(future)
-                invokation_task = asyncio.create_task(self.invoke(prepared_args))
-                # Step 3: Handle Response
-                invokation_task.add_done_callback(lambda t, future=future: self.__get_output__(*t.result(), future=future, chain=chain))
-            return await asyncio.gather(*completion_futures)
-        task = asyncio.create_task(run_with())
-        task.add_done_callback(lambda _: chain.mark_completed())
-        return chain
-    fn.__signature__ = inspect.signature(func)
-    return fn
 
 
-def yields_args[**I, O](func: Callable[Concatenate[Agent[O], I], AsyncIterator[PreparedArgs]] | None = None) -> Callable[Concatenate[Agent[O], I], Invokation[O]]:
-    def fn(self: Agent[O], *args: I.args, **kwargs: I.kwargs) -> Invokation[O]:
-        chain = Invokation()
-        async def run_with():
-            completion_futures: list[asyncio.Future] = []
-            # Step 1: Prepare Args
-            async for prepared_args in func(self, *args, **kwargs):
-                #Step 2: Invoke
-                future = asyncio.Future()
-                completion_futures.append(future)
-                invokation_task = asyncio.create_task(self.invoke(prepared_args))
-                # Step 3: Handle Response
-                invokation_task.add_done_callback(lambda t, future=future: self.__get_output__(*t.result(), future=future, chain=chain))
-            return await asyncio.gather(*completion_futures)
-        task = asyncio.create_task(run_with())
-        task.add_done_callback(lambda _: chain.mark_completed())
-        return chain
-    fn.__signature__ = inspect.signature(func)
-    return fn
+
+

@@ -2,7 +2,7 @@ from __future__ import annotations
 import copy
 import uuid
 
-from typing import Any, List, Dict, Self, TextIO
+from typing import Any, Self, TextIO, TypeAlias
 
 from vespwood.parse_expr import parse_exprs, parse_dict
 from vespwood.match import match
@@ -15,10 +15,10 @@ from vespwood_generator import(
 )
 
 
-type PromptStructureDataUnit = Dict[str, "PromptStructureData" | str]
-type PromptStructureData = List[PromptStructureDataUnit | str] | PromptStructureDataUnit
+PromptStructureDataUnit: TypeAlias = "dict[str, PromptStructureData | str]"
+PromptStructureData: TypeAlias = "list[PromptStructureDataUnit | str] | PromptStructureDataUnit"
 
-type PromptLike = Prompt | PromptStructure
+PromptLike: TypeAlias = "Prompt | PromptStructure"
 
 
 class PromptStructure(list[PromptLike]):
@@ -77,7 +77,7 @@ class PromptStructure(list[PromptLike]):
 
 
     def match(self, value: Any, format_keys: FormatKeys) -> bool:
-        print("Match", self._match, type(self._match), self._params)
+        
         if isinstance(self._match, str) or isinstance(self._match, Expression) or isinstance(self._match, Logic):
             if self._params:
                 mapping = format_keys.get_params(self._params)
@@ -184,7 +184,7 @@ class PromptStructure(list[PromptLike]):
 
     @classmethod
     def load_from_dict(cls, data: PromptStructureData) -> Self:
-        if isinstance(data, Dict):
+        if isinstance(data, dict):
             if data.get("iterator") or data.get("in"):
                 return PromptStructure.load_iterator(data)
             elif data.get("when") or data.get("switch"):
@@ -195,7 +195,7 @@ class PromptStructure(list[PromptLike]):
                 return PromptStructure.load_while(data)
             else:
                 return cls([Prompt.load_from_dict(data)])
-        elif isinstance(data, List):
+        elif isinstance(data, list):
             self = cls([])
             for prompt in data:
                 if any(key in prompt for key in self.keys()):
@@ -403,7 +403,6 @@ class PromptStructure(list[PromptLike]):
             
         # If
         elif prompt_structure.is_if:
-            print("Params", prompt_structure._params)
             if prompt_structure._params:
                 mapping = format_keys.get_params(prompt_structure._params)
                 prompt_structure._if = prompt_structure._if.format_map(mapping)
@@ -454,7 +453,6 @@ class PromptStructure(list[PromptLike]):
                         message = tagged_messages[tag]
                         prompt.update_message(message)
                     if prompt.response_awaited:
-                        print("Returning ", tag, "for prompt", prompt)
                         return msgs, format_keys, tag, prompt.schema, prompt.tools, prompt.hooks, prompt.validators, prompt.saves    
                 msgs.append(prompt)
 

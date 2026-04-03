@@ -1,6 +1,6 @@
 from __future__ import annotations
 import asyncio
-from typing import Callable
+from typing import Callable, TypeVar, Generic
 import uuid
 from weakref import ReferenceType, ref
 
@@ -49,8 +49,9 @@ class AliveCountRef:
         self._on_zero_alive_callbacks.append(func)
 
 
+T = TypeVar("T")
 
-class Output[T]:
+class Output(Generic[T]):
     __slots__ = '_id', '_data', '_invokation_ref'
     def __init__(self, output: T, invokation: "Invokation"):
         self._id = uuid.uuid4().hex
@@ -85,7 +86,9 @@ class Output[T]:
         self.invokation.one_output_processed()
 
 
-class Invokation[D]:
+
+D = TypeVar("D")
+class Invokation(Generic[D]):
     __slots__ = (
         'id', 
         '_route', 

@@ -1,8 +1,10 @@
+from __future__ import annotations
+from typing import TypeAlias
 from vespwood_generator import Message
 from vespwood._utils import get_key_index
 
 
-type MessageGroup = Message | list[MessageGroup]
+MessageGroup: TypeAlias = Message | list["MessageGroup"]
 
 
 class TaggedMessages(dict[str, MessageGroup]):

@@ -1,24 +1,26 @@
+from __future__ import annotations
 from abc import abstractmethod
 import asyncio
-from typing import List, Optional, Callable, Dict, Any, Tuple, TypeVar, Type
+from typing import List, Optional, Callable, Any, Tuple, TypeVar, Type, TypeAlias
 from vesp.invokation import Invokation, Output
-from vesp.agents.agent import BaseAgent
+from vesp.agents.base import BaseAgent
 from vesp.visibility import Visibility
 
 
-type AgentLike = BaseAgent | Callable[..., BaseAgent]
-type TeamLike = Dict[str, "TeamLike" | AgentLike]
+AgentLike: TypeAlias = BaseAgent | Callable[..., BaseAgent]
+TeamLike: TypeAlias = "dict[str, TeamLike | AgentLike]"
 
-type Next = str 
-type Args = List[Any]
-type Kwargs = Dict[str, Any]
-type NextWithArgs = Tuple[Next, Args]
-type NextWithKwargs = Tuple[Next, Kwargs]
-type NextWithArgsAndKwargs = Tuple[Next, Args, Kwargs]
+Next: TypeAlias = str 
+Args: TypeAlias = List[Any]
+Kwargs: TypeAlias = dict[str, Any]
+NextWithArgs: TypeAlias = Tuple[Next, Args]
+NextWithKwargs: TypeAlias = Tuple[Next, Kwargs]
+NextWithArgsAndKwargs: TypeAlias = Tuple[Next, Args, Kwargs]
 
-type HandoverResponse = Next | NextWithArgs | NextWithKwargs | NextWithArgsAndKwargs
+HandoverResponse: TypeAlias = Next | NextWithArgs | NextWithKwargs | NextWithArgsAndKwargs
 
-def normalise(routes: TeamLike, prefix: str = "") -> Dict[str, BaseAgent]:
+
+def normalise(routes: TeamLike, prefix: str = "") -> dict[str, BaseAgent]:
     normalised_dict = {}
     for key, value in routes.items():
         if isinstance(value, dict):
@@ -40,7 +42,7 @@ class Chain(list[Invokation]):
 
 
 class AgentsTeam(dict, BaseAgent):
-    def __init__(self, route_map: Dict[str, any], *args, **kwargs):
+    def __init__(self, route_map: dict[str, any], *args, **kwargs):
         for route, agent_class in route_map.items():
             route = route.removeprefix('/')
             paths = route.split('/')
@@ -54,12 +56,12 @@ class AgentsTeam(dict, BaseAgent):
         self.__kwargs = kwargs
 
 
-    def normalise(self) -> Dict[str, BaseAgent]:
+    def normalise(self) -> dict[str, BaseAgent]:
         return normalise(self)
             
 
     @abstractmethod
-    def create_routes(self) -> Dict[str, any]:
+    def create_routes(self) -> dict[str, any]:
         pass
 
     
@@ -161,8 +163,7 @@ class AgentsTeam(dict, BaseAgent):
 
 
     @abstractmethod
-    async def handover(self, route: str, output: Any, chain: list[Invokation]) -> Optional[List[HandoverResponse]]:
-        pass
+    async def handover(self, route: str, output: Any, chain: list[Invokation]) -> Optional[List[HandoverResponse]]: ...
 
 
     async def __handover__(self, route: str, output: Output) -> None:
@@ -208,7 +209,7 @@ class AgentsTeam(dict, BaseAgent):
 
 
     @property
-    def schema(self) -> Dict[str, Any]:
+    def schema(self) -> dict[str, Any]:
         routes = self.normalise()
         properties: dict[str, any] = self.index.schema["properties"]
         oneOf = [{

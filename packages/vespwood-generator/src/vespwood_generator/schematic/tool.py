@@ -1,9 +1,11 @@
-from typing import Callable, Any
+from typing import Callable, Any, TypeVar, ParamSpec, Generic
 
 from vespwood_generator.schematic import Schematic
 
+I = ParamSpec('I')
+O = TypeVar('O')
 
-class Tool[**I, O](Schematic):
+class Tool(Schematic, Generic[I, O]):
     __slots__ = "_name", "_description", "_schema", "_function", "_caller",
 
     def __init__(self, func: Callable[I, O], *, name: str | None = None, description: str | None = None):

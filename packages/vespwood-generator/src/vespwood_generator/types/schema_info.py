@@ -1,3 +1,5 @@
-type SchemaObject = dict # TODO: Change to TypedDict
+from typing import TypeAlias
 
-type SchemaInfo = SchemaObject | str
+SchemaObject: TypeAlias = dict # TODO: Change to TypedDict
+
+SchemaInfo: TypeAlias = SchemaObject | str

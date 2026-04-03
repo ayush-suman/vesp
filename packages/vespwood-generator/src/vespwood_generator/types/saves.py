@@ -1,1 +1,3 @@
-type Saves = dict[str, str]
+from typing import TypeAlias
+
+Saves: TypeAlias = dict[str, str]

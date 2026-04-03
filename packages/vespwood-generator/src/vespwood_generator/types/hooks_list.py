@@ -1,3 +1,5 @@
-type HookObject = dict # TODO: Change to TypedDict
+from typing import TypeAlias
 
-type HooksList = list[HookObject | str]
+HookObject: TypeAlias = dict # TODO: Change to TypedDict
+
+HooksList: TypeAlias = list[HookObject | str]
