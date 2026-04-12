@@ -4,7 +4,7 @@ import os
 from openai import NOT_GIVEN, AsyncOpenAI, RateLimitError as OpenAIRateLimitError
 from vespwood_generator import (
     message_converter, 
-    Prompt, 
+    Message,
     Response,
     Structured,
     ToolCall, 
@@ -16,7 +16,7 @@ from vespwood_generator import (
 
 
 @message_converter
-def _openai_response_msg_converter(prompt: Prompt):
+def _openai_response_msg_converter(prompt: Message):
     msgs = []
     content = []
     for block in prompt:
@@ -60,7 +60,7 @@ class OpenAIResponsesGenerator(Generator):
         self._model = AsyncOpenAI(api_key=api_key, timeout=timeout)
 
 
-    async def __prompt__(self, messages: list[Prompt], schema: Schema | None = None, tools: list[Tool] | None = None) -> Response:
+    async def __prompt__(self, messages: list[Message], schema: Schema | None = None, tools: list[Tool] | None = None) -> Response:
         prompts = _openai_response_msg_converter(messages)
         
         output_format = NOT_GIVEN

@@ -14,11 +14,6 @@ dependencies = [
     "google-genai"
 ]
 
-[project.optional-dependencies]
-yaml = [
-    "vespwood[yaml]"
-]
-
 [project.urls]
 Homepage = "https://vespwood.com"
 Repository = "https://github.com/ayush-suman/vesp.git"

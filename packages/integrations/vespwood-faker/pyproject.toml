@@ -3,16 +3,17 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "vespwood-openai"
+name = "vespwood-faker"
 version = "1.0.10"
-description = "OpenAI integration for Vespwood"
+description = "Fake generator for Vespwood"
 license = {text = "Apache"}
 readme = "README.md"
 requires-python = ">=3.11.0,<4.0.0"
 dependencies = [
     "vespwood-generator",
-    "openai"
+    "jsf"
 ]
+
 
 [project.urls]
 Homepage = "https://vespwood.com"

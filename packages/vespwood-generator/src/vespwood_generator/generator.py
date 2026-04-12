@@ -3,7 +3,7 @@ import asyncio
 from typing import Any
 from vespwood_generator.schematic import Schema, Tool
 from vespwood_generator.errors import MaxTokenLimitError, RateLimitError, ValidationError
-from vespwood_generator.message import Prompt, Response, Message
+from vespwood_generator.message import Response, Message
 from vespwood_generator.validator import Validator
 
 
@@ -15,7 +15,7 @@ class GeneratorClass(ABCMeta):
 class Generator(metaclass=GeneratorClass):
     @abstractmethod
     async def __prompt__(self, 
-        messages: list[Prompt], 
+        messages: list[Message], 
         schema: Schema | None = None,
         tools: list[Tool] | None = None, 
         assistant_response: Message | None = None, 
@@ -23,7 +23,7 @@ class Generator(metaclass=GeneratorClass):
     ): ...
 
 
-    async def get_response(self, messages: list[Prompt], format_keys: dict[str, Any], schema: Schema | None, tools: list[Tool] | None, validators: list[Validator] | None, continue_on_max_token: bool = True, retry_on_rate_limit: bool = True, retry_with_delay: int = 0, **kwargs) -> Response:
+    async def get_response(self, messages: list[Message], format_keys: dict[str, Any], schema: Schema | None, tools: list[Tool] | None, validators: list[Validator] | None, continue_on_max_token: bool = True, retry_on_rate_limit: bool = True, retry_with_delay: int = 0, **kwargs) -> Response:
         response = None
         try:
             response = await self.__prompt__(messages, schema, tools, **kwargs)

@@ -1,11 +1,15 @@
 
 from typing import Any
 
-from vespwood_generator.types import Params, HooksList, SchemaInfo, ToolsList, ValidatorsList, Saves, Role
-from vespwood_generator.tag import Tag
-from vespwood_generator.blocks import File, Image, ToolCall
-from .message import Message
+from vespwood_generator import (
+    Message,
+    File, Image, ToolCall,
+    Tag, Role
+)
 
+from vespwood.types import (
+    Params, HooksList, SchemaInfo, ToolsList, ValidatorsList, Saves
+)
 
 class Prompt(Message):
     __slots__ = "_params", "_schema", "_tools", "_hooks", "_validators", "_saves", "_json", "_tag"
@@ -88,9 +92,16 @@ class Prompt(Message):
         hooks = data.get("hooks")
         validators = data.get("validators")
         saves = data.get("saves")
-        # if isinstance(saves, list):
-        #     map(, saves)
-        prompt: Prompt = cls(content=content, role=role, params=params, schema=schema, tools=tools, hooks=hooks, validators=validators, saves=saves) 
+        prompt = cls(
+            content=content, 
+            role=role, 
+            params=params, 
+            schema=schema, 
+            tools=tools, 
+            hooks=hooks, 
+            validators=validators, 
+            saves=saves
+        ) 
 
         tag = data.get("tag")
         if role == "assistant" and tag is None:
@@ -111,8 +122,8 @@ class Prompt(Message):
             role=self._role, 
             content=self._content.copy() if self._content else None, 
             params=self._params.copy() if self._params else None,
-            tools=self._tools.copy() if self._tools else None,
             schema=self._schema.copy() if isinstance(self._schema, dict) else self._schema,
+            tools=self._tools.copy() if self._tools else None,
             hooks=self._hooks.copy() if self._hooks else None,
             validators=self._validators.copy() if self._validators else None,
             saves=self._saves.copy() if self._saves else None)
@@ -179,12 +190,7 @@ class Prompt(Message):
     def saves(self):
         return self._saves
 
-    @property
-    def json(self):
-        data = { "role": self.role, "content": self.content }
-        if self.is_tagged:
-            data.update({ "tag": self.tag })
-        return data
+    
 
     def __str__(self) -> str:
         data = self.json

@@ -24,22 +24,26 @@ from .logic import Logic
 from .match import match
 from .prompt_mapping import PromptMapping
 from .tagged_messages import TaggedMessages
+from .message import Prompt
 
-from vespwood_generator import (
-    Block, File, Image, Structured, ToolCall,
-    Message, Prompt, Response,
-    validator, Validator,
-    Schematic, schema, Schema, tool, Tool,
-    GeneratorClass, Generator,
-    Tag,
+from .types import (
     HookObject, HooksList, 
     Params, 
     PreparedArgs, 
-    Role, 
     Saves, 
     SchemaObject, SchemaInfo, 
     ToolObject, ToolsList, 
     ValidatorsList
+)
+
+from vespwood_generator import (
+    Role,
+    Block, File, Image, Structured, ToolCall,
+    Message, Response,
+    validator, Validator,
+    Schematic, schema, Schema, tool, Tool,
+    GeneratorClass, Generator,
+    Tag
 )
 
 __all__ = [

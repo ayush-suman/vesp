@@ -1,9 +1,17 @@
 from typing import Any
 
 from vespwood_generator import (
-    Tag, Message, Prompt, Response,
-    SchemaInfo, ToolsList, HooksList, ValidatorsList, Saves
+    Tag, Message, Response
 )
+from vespwood.types import (
+    Params,
+    SchemaInfo, 
+    ToolsList, 
+    HooksList, 
+    ValidatorsList, 
+    Saves
+)
+from vespwood.message import Prompt
 from vespwood.format_object import FormatKeys
 from vespwood.tagged_messages import TaggedMessages
 from .prompt_structure import PromptStructure
@@ -15,6 +23,13 @@ class MessageList(PromptStructure):
     def __init__(self,
                 prompt_list: list[Prompt | PromptStructure], 
                 *,
+                id: str | None = None,
+                name: str | None = None,
+                description: str | None = None,
+                schemas: list[SchemaInfo] | None = None,
+                tools: ToolsList | None = None,
+                hooks: HooksList | None = None,
+                validators: ValidatorsList | None = None,
                 iterator: str | None = None, 
                 iter_key: str | None = None,
                 co_iterators: list[str] | None = None, 
@@ -27,9 +42,18 @@ class MessageList(PromptStructure):
                 then: PromptStructure | None = None,
                 switch: str | None = None, 
                 cases: list[PromptStructure] | None = None,
-                **kwargs):
+                params: Params | None = None,
+                **kwargs
+            ):
         super().__init__(
             prompt_list, 
+            id=id,
+            name=name,
+            description=description,
+            schemas=schemas,
+            tools=tools,
+            hooks=hooks,
+            validators=validators,
             iterator=iterator, 
             iter_key=iter_key,
             co_iterators=co_iterators,
@@ -42,16 +66,38 @@ class MessageList(PromptStructure):
             then=then,
             switch=switch, 
             cases=cases,
+            params=params
         )
         self._format_keys: FormatKeys = FormatKeys(kwargs)
         self._tagged_messages: dict[str, Message] = {}
 
 
     @classmethod
-    def from_prompt_structure(cls, prompt_structure: PromptStructure, *, keys: dict[str, Any] = {}, **kwargs) -> "MessageList":
-        structure_dict = prompt_structure.as_dict
-        structure_dict.update(kwargs)
-        self = cls(prompt_structure, **structure_dict)
+    def from_prompt_structure(cls, prompt_structure: PromptStructure, *, keys: dict[str, Any] = {}) -> "MessageList":
+        self = cls(
+            prompt_structure,
+            id=prompt_structure.id,
+            name=prompt_structure.name,
+            description=prompt_structure.description,
+            schemas=prompt_structure.schemas,
+            tools=prompt_structure.tools,
+            hooks=prompt_structure.hooks,
+            validators=prompt_structure.validators,
+            iterator=prompt_structure.iterator, 
+            iter_key=prompt_structure.iter_key,
+            co_iterators=prompt_structure.co_iterators,
+            co_iter_keys=prompt_structure.co_iter_keys,
+            default_co_iter_values=prompt_structure.default_co_iter_values,
+            initial=prompt_structure.initial,
+            whilekey=prompt_structure.whilekey,
+            ifkey=prompt_structure.ifkey,
+            match=prompt_structure.matchkey,
+            then=prompt_structure.then,
+            switch=prompt_structure.switch, 
+            cases=prompt_structure.cases,
+            params=prompt_structure.params
+            
+        )
         self._format_keys.update(keys)
         return self
     

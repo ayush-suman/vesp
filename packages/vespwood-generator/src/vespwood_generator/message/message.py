@@ -29,6 +29,11 @@ class Message:
     @property
     def content(self) -> list[Block]:
         return self._content
+    
+    @property
+    def json(self):
+        data = { "role": self.role, "content": self.content }
+        return data
 
     def __iter__(self) -> list[Block]:
         return iter(self._content)

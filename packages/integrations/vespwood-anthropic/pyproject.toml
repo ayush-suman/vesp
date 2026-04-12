@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vespwood-anthropic"
-version = "1.0.9"
+version = "1.0.10"
 description = "Anthropic integration for Vespwood"
 license = {text = "Apache"}
 readme = "README.md"
@@ -12,11 +12,6 @@ requires-python = ">=3.11.0,<4.0.0"
 dependencies = [
     "vespwood-generator",
     "anthropic"
-]
-
-[project.optional-dependencies]
-yaml = [
-    "vespwood[yaml]"
 ]
 
 [project.urls]

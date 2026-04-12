@@ -1,15 +1,16 @@
 import inspect
 from pathlib import Path
-from typing import Any, TextIO
+from typing import Any
+import uuid
 import asyncio
 from vespwood_generator import (
     Generator,
     Schema, Tool,
     Validator,
     Response,
-    Structured, ToolCall,
-    PreparedArgs, HooksList,
+    Structured, ToolCall
 )
+from vespwood.types import PreparedArgs, HooksList, Params
 from vespwood._utils import invoke_funcs
 from vespwood.interceptor import Interceptor
 from vespwood.format_object import FormatKeys
@@ -21,12 +22,14 @@ import bisect
 
 
 class Completor:
-    __slots__ = "_generator", "_prompt_structure", "_name", "_description", "_params", "_transforms", "_schemas", "_tools", "_hooks", "_validators", "_interceptors", "_delay_constant", "_max_requests", "_generation_queue", "_lock", "_continue_on_max_token", "_retry_on_rate_limit", "_retry_with_delay",
+    __slots__ = "_generator", "_prompt_structure", "_name", "_description", "_params", "_schemas", "_tools", "_hooks", "_validators", "_interceptors", "_delay_constant", "_max_requests", "_generation_queue", "_lock", "_continue_on_max_token", "_retry_on_rate_limit", "_retry_with_delay",
 
     def __init__(self,
                 generator: Generator,
                 *,
-                prompt_structure: PromptStructure | dict | list | str | None = None,
+                prompt_structure: PromptStructure | dict | list | str,
+                name: str | None = None,
+                description: str | None = None,
                 schemas: list[Schema] = [],
                 tools: list[Tool] = [],
                 hooks: list[Hook] = [],
@@ -39,7 +42,6 @@ class Completor:
                 retry_with_delay: int = 0,
                 **kwargs
             ):
-        
         if isinstance(prompt_structure, str):
             # Convert relative path to absolute path
             caller_frame = inspect.stack()[1]
@@ -48,77 +50,59 @@ class Completor:
             if not path.is_absolute() and not path.is_file():
                 path = (Path(src_file).parent / path)
                 prompt_structure = str(path)
-            file: TextIO = open(prompt_structure, "r", encoding="utf-8")
-            # Load from JSON file
-            if prompt_structure.endswith(".json"):
-                import json
-                prompt_structure = json.load(file)
-            # Load from YAML file
-            elif prompt_structure.endswith(".yaml"):
-                try:
-                    import yaml # type: ignore
-                except e:
-                    raise ImportError("To load from prompt structure from a yaml file, you need to install the optional dependency yaml. Try running 'pip install vespwood[yaml]'") from None
-                prompt_structure = yaml.safe_load(file)
+            self._prompt_structure = PromptStructure.load_from_file(prompt_structure)
         
-        if isinstance(prompt_structure, dict):
-            self._name: str = prompt_structure.get("name", "")
-            self._description: str | None = prompt_structure.get("description")
-            self._params: list[str] = prompt_structure.get("params")
-            self._transforms: list = prompt_structure.get("transforms")
-            
-            schema_list = prompt_structure.get("schemas", [])
-            schema_names = set(map(lambda s: s.name, schemas))
-            if diff := set(filter(lambda s: isinstance(s, str), schema_list)) - schema_names:
-                raise MissingSchemaError(diff)
-            for s in filter(lambda s: isinstance(s, dict), schema_list):
-                try:
-                    schemas.append(Schema.from_json_schema(**s, schemas=schemas))
-                except KeyError as e:
-                    raise MissingSchemaError([*e.args])
-            schemas.sort(key=lambda s: s.name)
-            self._schemas: list[Schema] = schemas
+        elif isinstance(prompt_structure, dict):
+            self._prompt_structure = PromptStructure.load_from_dict(prompt_structure)
 
-            tools.sort(key=lambda t: t.name)
-            tool_list = set(prompt_structure.get("tools", []))
-            tool_names = set(map(lambda t: t.name, tools))
-            if diff := tool_list - tool_names:
-                raise MissingToolError(diff)
-            self._tools: list[Tool] = tools
+        elif isinstance(prompt_structure, list):
+            self._prompt_structure = PromptStructure.load_from_structure(prompt_structure)
 
-            hooks.sort(key=lambda h: h.name)
-            hook_list = set(prompt_structure.get("hooks", []))
-            hook_names = set(map(lambda h: h.name, hooks))
-            if diff := hook_list - hook_names:
-                raise MissingHookError(diff)
-            self._hooks: list[Hook] = hooks
+        elif isinstance(prompt_structure, PromptStructure):
+            self._prompt_structure = prompt_structure
+        
+        self._name: str = name or self._prompt_structure.name
+        self._description: str | None = description or self._prompt_structure.description
+        self._params: Params | None = self._prompt_structure.params
 
-            validators.sort(key=lambda h: h.name)
-            validator_list = set(prompt_structure.get("validators", []))
-            validator_names = set(map(lambda v: v.name, validators))
-            if diff := validator_list - validator_names:
-                raise MissingValidatorError(diff)
-            self._validators: list[Hook] = validators
+        schema_list = self._prompt_structure.schemas or []
+        schema_names = set(map(lambda s: s.name, schemas))
+        if diff := set(filter(lambda s: isinstance(s, str), schema_list)) - schema_names:
+            raise MissingSchemaError(diff)
+        for s in filter(lambda s: isinstance(s, dict), schema_list):
+            try:
+                schemas.append(Schema.from_json_schema(**s, schemas=schemas))
+            except KeyError as e:
+                raise MissingSchemaError([*e.args])
+        schemas.sort(key=lambda s: s.name)
+        self._schemas: list[Schema] = schemas
 
-            prompt_structure = prompt_structure["structure"]
-        else:
-            self._name = ""
-            self._description = None
-            self._params = None
-            self._transforms = None
-            schemas.sort(key=lambda s: s.name)
-            self._schemas = schemas
-            tools.sort(key=lambda t: t.name)
-            self._tools = tools
-            hooks.sort(key=lambda h: h.name)
-            self._hooks = hooks
-            validators.sort(key=lambda h: h.name)
-            self._validators = validators
-        self._generator = generator
-        self._prompt_structure = PromptStructure.load_from_dict(prompt_structure)
-        self._interceptors = interceptors
+        tools.sort(key=lambda t: t.name)
+        tool_list = set(self._prompt_structure.tools or [])
+        tool_names = set(map(lambda t: t.name, tools))
+        if diff := tool_list - tool_names:
+            raise MissingToolError(diff)
+        self._tools: list[Tool] = tools
+
+        hooks.sort(key=lambda h: h.name)
+        hook_list = set(self._prompt_structure.hooks or [])
+        hook_names = set(map(lambda h: h.name, hooks))
+        if diff := hook_list - hook_names:
+            raise MissingHookError(diff)
+        self._hooks: list[Hook] = hooks
+
+        validators.sort(key=lambda h: h.name)
+        validator_list = set(self._prompt_structure.validators or [])
+        validator_names = set(map(lambda v: v.name, validators))
+        if diff := validator_list - validator_names:
+            raise MissingValidatorError(diff)
+        
+        self._validators: list[Hook] = validators
+        self._generator: Generator = generator
+        self._interceptors: list[Interceptor] = interceptors
         self._delay_constant: int = delay_constant
         self._max_requests: int = max_requests
+        
         self._generation_queue: asyncio.Queue = asyncio.Queue(maxsize=max_requests or 0)
         self._lock = asyncio.Lock()
 
@@ -126,6 +110,7 @@ class Completor:
         self._retry_on_rate_limit = retry_on_rate_limit,
         self._retry_with_delay = retry_with_delay
     
+
     @property
     def name(self) -> str:
         return self._name
@@ -133,14 +118,10 @@ class Completor:
     @property
     def description(self) -> str | None:
         return self._description
-
-    @property
-    def params(self) -> list[str]:
-        return self._params or []
     
     @property
-    def transforms(self) -> list[dict]:
-        return self._transforms
+    def params(self) -> Params | None:
+        return self._params
     
     @property
     def schemas(self) -> list[Schema]:
@@ -178,11 +159,19 @@ class Completor:
     
 
     async def __complete__(self, prepared_args: PreparedArgs) -> tuple[TaggedMessages, FormatKeys]:
+        session_id = uuid.uuid4().hex
+        await invoke_funcs(
+            list(map(lambda i: i.bind_name_with_session, self._interceptors)),
+            session_id,
+            self._name,
+            self._description
+        )
         message_list = MessageList.from_prompt_structure(self._prompt_structure, keys=prepared_args)
         prompts, format_keys, tag, schema, tools, hooks, validators, saves = message_list.get_prompt_list()
         while tag:
             on_response_callbacks = await invoke_funcs(
                 self._interceptors,
+                session_id,
                 prompts,
                 format_keys, 
                 tag, 
@@ -290,7 +279,9 @@ class Completor:
 
 
     async def __call__(self, args: PreparedArgs) -> tuple[TaggedMessages, FormatKeys]:
-        if diff := set(self.params) - set(args):
-            raise MissingParamError(*diff)
-        print("Invoking ", self.name)
+        if self.params:
+            params = set(map(lambda p: p if isinstance(p, str) else list(p)[0], params))
+            if diff := params - set(args):
+                raise MissingParamError(*diff)
+            print("Invoking ", self.name)
         return await self.__schedule__(args)

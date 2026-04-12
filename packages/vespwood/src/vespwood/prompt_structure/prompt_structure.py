@@ -2,44 +2,45 @@ from __future__ import annotations
 import copy
 import uuid
 
-from typing import Any, Self, TextIO, TypeAlias
+from typing import Any, Self, TypeAlias
 
+from vespwood_generator import Tag, Message
+
+from vespwood.types import (
+    Params,
+    SchemaInfo, 
+    ToolsList, 
+    HooksList, 
+    ValidatorsList, 
+    Saves
+)
 from vespwood.parse_expr import parse_exprs, parse_dict
 from vespwood.match import match
 from vespwood.expression import Expression
 from vespwood.logic import Logic
 from vespwood.format_object import FormatKeys
-from vespwood_generator import(
-    Tag, Message, Prompt,
-    SchemaInfo, ToolsList, HooksList, ValidatorsList, Saves
-)
+from vespwood.message import Prompt
+
 
 
 PromptStructureDataUnit: TypeAlias = "dict[str, PromptStructureData | str]"
-PromptStructureData: TypeAlias = "list[PromptStructureDataUnit | str] | PromptStructureDataUnit"
+PromptStructureData: TypeAlias = "list[PromptStructureDataUnit | str]"
 
 PromptLike: TypeAlias = "Prompt | PromptStructure"
 
 
 class PromptStructure(list[PromptLike]):
-    def keys(self):
-        return ["iterator", "iter_key", "index_key", "co_iterators", "co_iter_keys", "default_co_iter_values", "initial", "while", "if", "match", "then", "switch", "cases", "params"]
-    
-    
-    def __getitem__(self, key):
-        if key is int:
-            return self[key]
-        return getattr(self, f"_{key}")
-    
-
-    def __contains__(self, key):
-        return key in self.keys()
-
 
     def __init__(self, 
                 prompt_list: list[Prompt | PromptStructure], 
                 *,
                 id: str | None = None,
+                name: str | None = None,
+                description: str | None = None,
+                schemas: list[SchemaInfo] | None = None,
+                tools: ToolsList | None = None,
+                hooks: HooksList | None = None,
+                validators: ValidatorsList | None = None,
                 iterator: str | None = None, 
                 iter_key: str | None = None,
                 index_key: str | None = None,
@@ -53,9 +54,15 @@ class PromptStructure(list[PromptLike]):
                 then: PromptStructure | None = None,
                 switch: str | None = None, 
                 cases: list[PromptStructure] | None = None,
-                params: list[str] | None = None):
+                params: Params | None = None):
         self.extend(prompt_list)
         self._id = id or uuid.uuid4().hex
+        self._name = name,
+        self._description = description,
+        self._schemas = schemas
+        self._tools = tools
+        self._hooks = hooks
+        self._validators = validators
         self._iterator = iterator
         self._iter_key = iter_key
         self._index_key = index_key
@@ -77,7 +84,6 @@ class PromptStructure(list[PromptLike]):
 
 
     def match(self, value: Any, format_keys: FormatKeys) -> bool:
-        
         if isinstance(self._match, str) or isinstance(self._match, Expression) or isinstance(self._match, Logic):
             if self._params:
                 mapping = format_keys.get_params(self._params)
@@ -87,7 +93,7 @@ class PromptStructure(list[PromptLike]):
     
 
     @classmethod
-    def load_iterator(cls, data: PromptStructureData):
+    def __load_iterator__(cls, data: PromptStructureDataUnit):
         iterator = data.get("iterator") or data.get("in")
         iter_key: str = data.get("for") or data.get("iter_key", "it")
         index_key: str = data.get("index_key", "index")
@@ -96,25 +102,26 @@ class PromptStructure(list[PromptLike]):
                                                               [f"co_iter_{idx}_value" for idx in range(len(co_iterators))] 
                                                               if co_iterators else None)
         default_co_iter_values: list[str | None] | None = data.get("default_co_iter_values")
-        initial = PromptStructure.load_from_dict(data["initial"]) if data.get("initial") else None
+        initial = data.get("initial")
+        if initial is not None and not isinstance(initial, list): initial = [initial]
         structure = data["structure"]
         if not isinstance(structure, list): structure = [structure]
         params = data.get("params")
         return cls(
-            PromptStructure.load_from_dict(structure), 
+            PromptStructure.load_from_structure(structure), 
             iterator=iterator, 
             iter_key=iter_key, 
             index_key=index_key,
             co_iterators=co_iterators, 
             co_iter_keys=co_iter_keys, 
             default_co_iter_values=default_co_iter_values, 
-            initial=initial,
+            initial=PromptStructure.load_from_structure(initial),
             params=params
         )
 
 
     @classmethod
-    def load_case(cls, data: PromptStructureData, params: list[str] | None = None):
+    def __load_case__(cls, data: PromptStructureDataUnit, params: list[str] | None = None):
         matchkey = data.get("match") or data.get("case")
         structure = data["structure"]
         if not isinstance(structure, list): structure = [structure]
@@ -122,27 +129,27 @@ class PromptStructure(list[PromptLike]):
             if params is None: params = {}
             params.extend(p)
         return cls(
-            PromptStructure.load_from_dict(structure),
+            PromptStructure.load_from_structure(structure),
             match=matchkey,
             params=params
         )
         
 
     @classmethod
-    def load_switch(cls, data: PromptStructureData):
+    def __load_switch__(cls, data: PromptStructureDataUnit):
         switch = data.get("switch") or data.get("when")
         params = data.get("params")
-        cases = list(map(lambda case: PromptStructure.load_case(case, copy.copy(params)), data["cases"]))
+        cases = list(map(lambda case: PromptStructure.__load_case__(case, copy.copy(params)), data["cases"]))
         default = data.get("default", [])
         if not isinstance(default, list): default = [default]
         return cls(
-            PromptStructure.load_from_dict(default), 
+            PromptStructure.load_from_structure(default), 
             switch=switch, cases=cases, params=params
         )
         
 
     @classmethod
-    def load_if(cls, data: PromptStructureData):
+    def __load_if__(cls, data: PromptStructureDataUnit):
         ifkey = data["if"]
         matchkey = data.get("match")
         structure = data.get("else", [])
@@ -152,16 +159,16 @@ class PromptStructure(list[PromptLike]):
         if not isinstance(then, list): then = [then]
         params = data.get("params")
         return cls(
-            PromptStructure.load_from_dict(structure), 
+            PromptStructure.load_from_structure(structure), 
             ifkey=ifkey, 
             match=matchkey,
-            then=PromptStructure.load_from_dict(then),
+            then=PromptStructure.load_from_structure(then),
             params=params
         )
 
 
     @classmethod
-    def load_while(cls, data: PromptStructureData):
+    def __load_while__(cls, data: PromptStructureDataUnit):
         whilekey = data["while"]
         matchkey = data.get("match")
         initial = data.get("initial")
@@ -173,103 +180,193 @@ class PromptStructure(list[PromptLike]):
         if not isinstance(structure, list): structure = [structure]
         params = data.get("params")
         return cls(
-            PromptStructure.load_from_dict(structure),
+            PromptStructure.load_from_structure(structure),
             whilekey=whilekey,
             index_key=index_key,
             match=matchkey,
-            initial=PromptStructure.load_from_dict(initial) if initial is not None else None,
+            initial=PromptStructure.load_from_structure(initial) if initial is not None else None,
             params=params
         )
 
-
     @classmethod
-    def load_from_dict(cls, data: PromptStructureData) -> Self:
-        if isinstance(data, dict):
-            if data.get("iterator") or data.get("in"):
-                return PromptStructure.load_iterator(data)
-            elif data.get("when") or data.get("switch"):
-                return PromptStructure.load_switch(data)
-            elif data.get("if"):
-                return PromptStructure.load_if(data)
-            elif data.get("while"):
-                return PromptStructure.load_while(data)
-            else:
-                return cls([Prompt.load_from_dict(data)])
-        elif isinstance(data, list):
-            self = cls([])
-            for prompt in data:
-                if any(key in prompt for key in self.keys()):
-                    self.append(PromptStructure.load_from_dict(prompt))
-                else:
-                    self.append(Prompt.load_from_dict(prompt))
-            return self
-    
-    
-    @property
-    def as_dict(self):
-        data = {}
-        for key in self.keys():
-            if self[key] is not None:
-                if key == "while":
-                    data["whilekey"] = self[key]
-                elif key == "if":
-                    data["ifkey"] = self[key]
-                else:
-                    data[key] = self[key]
-        return data
-
-    @property
-    def json(self) -> dict:
-        data = {}
-        if self.is_iterator:
-            data = { **self.as_dict, "structure": list(map(lambda p: p.json, self)) }
-        elif self.is_switch:
-            data = { **self.as_dict, "default": list(map(lambda p: p.json, self)) }
-        elif self.is_while:
-            data = { **self.as_dict, "structure": list(map(lambda p: p.json, self)) }
-        elif self.is_if:
-            data = { **self.as_dict, "then": list(map(lambda p: p.json, self._then)), "else": list(map(lambda p: p.json, self)) }
+    def load_from_dict(cls, unit: PromptStructureDataUnit):
+        if unit.get("iterator") or unit.get("in"):
+            self = PromptStructure.__load_iterator__(unit)
+        elif unit.get("when") or unit.get("switch"):
+            self = PromptStructure.__load_switch__(unit)
+        elif unit.get("if"):
+            self = PromptStructure.__load_if__(unit)
+        elif unit.get("while"):
+            self = PromptStructure.__load_while__(unit)
         else:
-            data = list(map(lambda p: p.json, self))
-        return data
-
-
-    def __repr__(self) -> str:
-        data = self.json
-        import json
-        return json.dumps(data, indent=2)
-        
-        
-    def __str__(self) -> str:
-        data = self.json
-        import json
-        return json.dumps(data, indent=2)
-
-
-    @classmethod
-    def load(cls, file_name: str) -> Self:
-        file: TextIO = open(file_name, "r")
-        structure = None
-        # Load from JSON file
-        if file_name.endswith(".json"):
-            import json
-            structure = json.load(file)
-        # Load from YAML file
-        elif file_name.endswith(".yaml"):
-            import yaml
-            structure = yaml.safe_load(file)
-        self = None
-        if isinstance(structure, dict):
-            self = PromptStructure.load_from_dict(structure)  
-        else:
-            self = PromptStructure.load_from_dict(structure["structure"])
-        file.close()
+            if not "structure" in unit:
+                raise SyntaxError("No valid schema found in the dict to load PromptStrucutre. It should have either iterator, switch, if, while or structure key defined")
+            self = PromptStructure.load_from_structure(unit["structure"])
+        self._name = unit.get("name")
+        self._description = unit.get("description")
+        self._schemas = unit.get("schemas")
+        self._tools = unit.get("tools")
+        self._hooks = unit.get("hooks")
+        self._validators = unit.get("validators")
         return self
+
+
+    @classmethod
+    def load_from_structure(
+        cls, 
+        data: PromptStructureData, 
+        *, 
+        name: str | None = None, 
+        description: str | None = None,
+        schemas: list[SchemaInfo] | None = None,
+        tools: ToolsList | None = None
+    ) -> Self:
+        self = cls([], name=name, description=description, schemas=schemas, tools=tools)
+        for prompt in data:
+            if any(key in prompt for key in ("iterator", "in", "when", "switch", "if", "while", "structure")):
+                self.append(PromptStructure.load_from_dict(prompt))
+            else:
+                self.append(Prompt.load_from_dict(prompt))
+        return self
+
+
+    @classmethod
+    def load_from_file(cls, file_name: str) -> Self:
+        with open(file_name, "r") as file:
+            structure = None
+            # Load from JSON file
+            if file_name.endswith(".json"):
+                import json
+                structure = json.load(file)
+            # Load from YAML file
+            elif file_name.endswith(".yaml"):
+                try:
+                    import yaml # type: ignore
+                except:
+                    raise ImportError("To load from prompt structure from a yaml file, you need to install the optional dependency yaml. Try running 'pip install vespwood[yaml]'") from None
+                structure = yaml.safe_load(file)
+
+            if isinstance(structure, dict): 
+                return PromptStructure.load_from_dict(structure)
+            elif isinstance(structure, list):
+                return PromptStructure.load_from_structure(
+                    structure, 
+                    name=file_name.split(".")[0]
+                )
     
+
+    @property
+    def id(self) -> str:
+        return self._id
+
+    @property
+    def name(self) -> str | None:
+        return self._name
+    
+    
+    @property
+    def description(self) -> str | None:
+        return self._description
+    
+    
+    @property
+    def schemas(self) -> list[SchemaInfo] | None:
+        return self._schemas
+    
+    
+    @property
+    def tools(self) -> ToolsList | None:
+        return self._tools
+    
+    
+    @property
+    def hooks(self) -> HooksList | None:
+        return self._hooks
+    
+
+    @property
+    def validators(self) -> ValidatorsList | None:
+        return self._validators
+    
+
+    @property
+    def params(self) -> Params | None:
+        return self._params
+
+    
+    @property
+    def iterator(self):
+        return self._iterator
+
+
+    @property
+    def iter_key(self):
+        return self._iter_key
+
+
+    @property
+    def index_key(self):
+        return self._index_key
+
+
+    @property
+    def co_iterators(self):
+        return self._co_iterators
+
+
+    @property
+    def co_iter_keys(self):
+        return self._co_iter_keys
+
+
+    @property
+    def default_co_iter_values(self):
+        return self._default_co_iter_values
+
+
+    @property
+    def initial(self):
+        return self._initial
+
+
+    @property
+    def whilekey(self):
+        return self._while
+
+
+    @property
+    def ifkey(self):
+        return self._if
+
+
+    @property
+    def matchkey(self):
+        return self._match
+
+
+    @property
+    def then(self):
+        return self._then
+
+
+    @property
+    def switch(self):
+        return self._switch
+
+
+    @property
+    def cases(self):
+        return self._cases
+
 
     @property
     def is_iterator(self) -> bool:
         return self._iterator is not None
+    
+
+    @property
+    def is_while(self) -> bool:
+        return self._while is not None
     
 
     @property
@@ -285,11 +382,7 @@ class PromptStructure(list[PromptLike]):
     @property
     def is_if(self) -> bool:
         return self._if is not None
-    
-    @property
-    def is_while(self) -> bool:
-        return self._while is not None
-    
+
 
     @property
     def normalised(self) -> PromptStructure:
@@ -311,7 +404,13 @@ class PromptStructure(list[PromptLike]):
         
         return PromptStructure(
             [p.copy() for p in self],
-            id=copy.copy(self._id), 
+            id=self._id, 
+            name=self._name,
+            description=self._description,
+            schemas=self._schemas.copy() if self._schemas else None,
+            tools=self._tools.copy() if self._tools else None,
+            hooks=self._hooks.copy() if self._hooks else None,
+            validators=self._validators.copy() if self._validators else None,
             iterator=copy.copy(self._iterator),
             iter_key=copy.copy(self._iter_key), 
             index_key=copy.copy(self._index_key),
@@ -331,6 +430,34 @@ class PromptStructure(list[PromptLike]):
     
     def __copy__(self):
         return self.copy()
+    
+    
+    @property
+    def json(self) -> dict:
+        data = {}
+        for key in ("iterator", "in", "when", "switch", "if", "while", "structure"):
+            if hasattr(self, key) and getattr(self, key) is not None:
+                data[key] = getattr(self, key)
+        if self.is_iterator: data["structure"] = list(map(lambda p: p.json, self))
+        elif self.is_switch: data["default"] = list(map(lambda p: p.json, self)) 
+        elif self.is_while: data["structure"] = list(map(lambda p: p.json, self))
+        elif self.is_if:
+            data["then"] = list(map(lambda p: p.json, self._then))
+            data["else"] = list(map(lambda p: p.json, self))
+        else: data["structure"] = list(map(lambda p: p.json, self))
+        return data
+
+
+    def __repr__(self) -> str:
+        data = self.json
+        import json
+        return json.dumps(data, indent=2)
+        
+        
+    def __str__(self) -> str:
+        data = self.json
+        import json
+        return json.dumps(data, indent=2)
     
     
     def indexed(self, idx: int) -> "PromptStructure":

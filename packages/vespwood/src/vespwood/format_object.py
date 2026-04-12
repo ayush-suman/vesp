@@ -1,6 +1,6 @@
 from typing import Any
 from vespwood.prompt_mapping import PromptMapping
-from vespwood_generator import Params
+from vespwood.types import Params
 from vespwood._utils import get_key_index
 
 

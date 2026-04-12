@@ -250,7 +250,7 @@ class Invokation(Generic[D]):
     def add_next(self, next: "Invokation"):
         if self.is_dead:
             raise ValueError("Cannot chain new invokation after marking this output dead")
-        next.register_on_chain_dead_callbacks(self._on_chain_dead_callbacks)
+        next._register_on_chain_dead_callbacks(self._on_chain_dead_callbacks)
         if self.nexts: self.nexts.append(next)
         else: self.nexts = [next]
         self._alive_chain_count_ref.increment()
@@ -298,18 +298,14 @@ class Invokation(Generic[D]):
             for next in self.nexts: next.on_chain_dead(func)
 
 
-    def on_all_chains_dead(self, func: Callable[[Output], None]):
-        self._alive_chain_count_ref.on_zero_alive(func)
-
-
-    def register_on_next_callbacks(self, funcs: list[Callable[["Invokation"], None]]):
-        self._on_next_callbacks.extend(funcs)
-
-
-    def register_on_chain_dead_callbacks(self, funcs: list[Callable[[Output], None]]):
+    def _register_on_chain_dead_callbacks(self, funcs: list[Callable[[Output], None]]):
         self._on_chain_dead_callbacks.extend(funcs)
         if self.nexts: 
-            for next in self.nexts: next.register_on_chain_dead_callbacks(funcs)
+            for next in self.nexts: next._register_on_chain_dead_callbacks(funcs)
+
+
+    def on_all_chains_dead(self, func: Callable[[Output], None]):
+        self._alive_chain_count_ref.on_zero_alive(func)    
     
 
     def find_by_id(self, id: str) -> Invokation | None:
@@ -319,11 +315,10 @@ class Invokation(Generic[D]):
             found = next.find_by_id(id)
             if found:
                 return found
+        if self.inside:
+            return self.inside.find_by_id(id)
+        
         raise ValueError(f"InvokationChain with id {id} not found in chain starting with {self.id}")
-    
-
-    def copy_without_outputs(self):
-        return Invokation(id=self.id)
 
     
     def normalise(self) -> list[list["Invokation"]]:

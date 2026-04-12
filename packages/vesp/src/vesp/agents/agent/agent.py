@@ -78,14 +78,17 @@ T = TypeVar("T", bound=Agent)
 
 def agent(
         cls: type[T] | None = None, /, *,
+        name: str | None = None,
+        description: str | None = None,
         generator: GeneratorClass | Generator | None, 
         prompt_structure: str | None = None, 
-        max_requests: int = 0, 
-        delay_constant: int = 0, 
         schemas: list[Schema] = [],
-        validators: list[Validator] = [], 
         tools: list[Tool] = [], 
-        hooks: list[Hook] = []):
+        hooks: list[Hook] = [],
+        validators: list[Validator] = [], 
+        max_requests: int = 0, 
+        delay_constant: int = 0
+    ):
     def decorator(cls: type[T]) -> type[T]:
         if not issubclass(cls, Agent):
             raise TypeError("agent decorator can only be used with subclass of Agent")
@@ -108,23 +111,21 @@ def agent(
                 try:
                     self.__completer = Completor(_generator,
                         prompt_structure=_prompt_structure, 
-                        validators=validators, 
-                        delay_constant=delay_constant, 
-                        max_requests=max_requests, 
+                        name=name or cls.__name__,
+                        description=description or cls.__doc__,
                         schemas=schemas,
                         tools=tools,
                         hooks=hooks,
-                        interceptors=interceptors
+                        validators=validators, 
+                        interceptors=interceptors,
+                        delay_constant=delay_constant, 
+                        max_requests=max_requests, 
                     )
                 except FileNotFoundError as e:
                     e.add_note(f'File "{Path(src_file)}", line {src_line}, in {cls.__qualname__}')
                     raise 
 
                 super().__init__(*args, **kwargs)
-                if self.__completer.name != "":
-                    self._name = self.__completer.name
-                if self.__completer.description is not None and self.__completer.description != "":
-                    self.description = self.__completer.description
 
 
             async def invoke(self, args: PreparedArgs) -> tuple[TaggedMessages, FormatKeys]:

@@ -12,5 +12,6 @@ vespwood = { workspace = true, editable = true }
 vesp = { workspace = true, editable = true }
 vespwood-openai = { workspace = true, editable = true }
 vespwood-google = { workspace = true, editable = true }
-vespwood-anthropic = {workspace = true, editable = true }
+vespwood-anthropic = { workspace = true, editable = true }
+vespwood-faker = { workspace = true, editable = true }
 
