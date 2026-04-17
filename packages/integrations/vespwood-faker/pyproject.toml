@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vespwood-faker"
-version = "1.0.10"
+version = "1.0.11"
 description = "Fake generator for Vespwood"
 license = {text = "Apache"}
 readme = "README.md"
