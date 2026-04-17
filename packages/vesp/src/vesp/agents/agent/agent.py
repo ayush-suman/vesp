@@ -1,5 +1,6 @@
 import asyncio
 from pathlib import Path
+from urllib.parse import urlparse
 from typing import Any, TypeVar, Generic
 from abc import abstractmethod
 
@@ -23,10 +24,9 @@ import inspect
 
 
 O = TypeVar("O")
-
-
 class Agent(BaseAgent, Generic[O]):
-    def __init__(self, *args, **kwargs):
+    def __init__(self):
+        print("Agent Init called")
         self._name = self.__class__.__name__
         self._description = self.__doc__
         self._schema = Schematic.to_json_schema(self.__call__)
@@ -74,14 +74,64 @@ class Agent(BaseAgent, Generic[O]):
         task.add_done_callback(lambda _: chain.mark_completed())
         return chain
     
-T = TypeVar("T", bound=Agent)
+    def __str__(self):
+        return self._name
 
+
+    def __repr__(self):
+        return self._name
+
+
+class LocalAgentMixin:
+    def __init__(
+        self, 
+        name: str,
+        description: str | None,
+        generator: GeneratorClass | Generator,
+        prompt_structure: str,
+        schemas: list[Schema] = [],
+        tools: list[Tool] = [], 
+        hooks: list[Hook] = [],
+        validators: list[Validator] = [], 
+        interceptors: list[Interceptor] = [],
+        max_requests: int = 0, 
+        delay_constant: int = 0, 
+        *args, 
+        **kwargs
+    ):
+            generator: Generator | None = generator(
+                *args,
+                **kwargs
+            ) if isinstance(generator, GeneratorClass) else generator
+            
+            if generator is None:
+                raise ValueError(f"Generator not defined for local agent {self.__name__}")
+            
+            self._completor = Completor(generator,
+                prompt_structure=prompt_structure, 
+                name=name,
+                description=description,
+                schemas=schemas,
+                tools=tools,
+                hooks=hooks,
+                validators=validators, 
+                interceptors=interceptors,
+                delay_constant=delay_constant, 
+                max_requests=max_requests, 
+            )
+            super().__init__(*args, **kwargs)
+
+
+    async def invoke(self, args: PreparedArgs) -> tuple[TaggedMessages, FormatKeys]:
+        return await self._completor(args)
+
+
+T = TypeVar("T", bound=Agent)
 def agent(
         cls: type[T] | None = None, /, *,
         name: str | None = None,
         description: str | None = None,
-        generator: GeneratorClass | Generator | None, 
-        prompt_structure: str | None = None, 
+        prompt_structure: str, 
         schemas: list[Schema] = [],
         tools: list[Tool] = [], 
         hooks: list[Hook] = [],
@@ -92,56 +142,44 @@ def agent(
     def decorator(cls: type[T]) -> type[T]:
         if not issubclass(cls, Agent):
             raise TypeError("agent decorator can only be used with subclass of Agent")
-    
-        class AgentWrapper(cls):
-            def __init__(self, interceptors: list[Interceptor] = [], *args, **kwargs):
-                _generator: Generator = generator(
-                    *args,
-                    **kwargs
-                ) if isinstance(generator, GeneratorClass) else generator
-                src_file = inspect.getsourcefile(cls)
-                _, src_line = inspect.getsourcelines(cls)
-                _prompt_structure = prompt_structure
-                if isinstance(prompt_structure, str):
-                    # Convert relative path to absolute path
-                    path = Path(prompt_structure)
-                    if not path.is_absolute() and not path.is_file():
-                        path = (Path(src_file).parent / path)
-                        _prompt_structure = str(path)
-                try:
-                    self.__completer = Completor(_generator,
-                        prompt_structure=_prompt_structure, 
-                        name=name or cls.__name__,
-                        description=description or cls.__doc__,
-                        schemas=schemas,
-                        tools=tools,
-                        hooks=hooks,
-                        validators=validators, 
-                        interceptors=interceptors,
-                        delay_constant=delay_constant, 
-                        max_requests=max_requests, 
-                    )
-                except FileNotFoundError as e:
-                    e.add_note(f'File "{Path(src_file)}", line {src_line}, in {cls.__qualname__}')
-                    raise 
+        
+        _prompt_structure = urlparse(prompt_structure)
+        if _prompt_structure.scheme and _prompt_structure.scheme not in ("", "file"):
+            ...
+        else:
+            src_file = inspect.getsourcefile(cls)
+            _, src_line = inspect.getsourcelines(cls)
+            # Convert relative path to absolute path
+            path = Path(_prompt_structure.path)
+            if not path.is_absolute() and not path.is_file():
+                path = (Path(src_file).parent / path)
+                _prompt_structure = str(path)
 
-                super().__init__(*args, **kwargs)
-
-
-            async def invoke(self, args: PreparedArgs) -> tuple[TaggedMessages, FormatKeys]:
-                return await self.__completer(args)
-
-
-            def __str__(self):
-                return cls.__name__
-
-
-            def __repr__(self):
-                return cls.__name__
-            
-        AgentWrapper.__name__ = cls.__name__
-        AgentWrapper.__qualname__ = cls.__qualname__
-        return AgentWrapper
+            class AgentWrapper(LocalAgentMixin, cls):
+                def __init__(self, generator: GeneratorClass | Generator, interceptors: list[Interceptor] = [], *args, **kwargs):
+                    try:
+                        super().__init__(
+                            name=name, 
+                            description=description, 
+                            generator=generator, 
+                            prompt_structure=_prompt_structure,
+                            schemas=schemas,
+                            tools=tools,
+                            hooks=hooks,
+                            validators=validators,
+                            interceptors=interceptors,
+                            max_requests=max_requests,
+                            delay_constant=delay_constant,
+                            *args,
+                            **kwargs
+                        )                
+                    except FileNotFoundError as e:
+                        e.add_note(f'File "{Path(src_file)}", line {src_line}, in {cls.__qualname__}')
+                        raise 
+                
+            AgentWrapper.__name__ = cls.__name__
+            AgentWrapper.__qualname__ = cls.__qualname__
+            return AgentWrapper
     
     if cls:
         return decorator(cls)

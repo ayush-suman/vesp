@@ -41,17 +41,20 @@ class Chain(list[Invokation]):
         return chain
 
 
-class AgentsTeam(dict, BaseAgent):
+class AgentsTeam(BaseAgent):
+    __slots__ = "_team",
+
     def __init__(self, route_map: dict[str, any], *args, **kwargs):
+        self._team = {}
         for route, agent_class in route_map.items():
             route = route.removeprefix('/')
             paths = route.split('/')
             if isinstance(agent_class, dict):
-                self.update({paths.pop(0): AgentsTeam({'/'.join(paths): agent_class} if len(paths) > 0 else agent_class, *args, **kwargs)})
+                self._team.update({paths.pop(0): AgentsTeam({'/'.join(paths): agent_class} if len(paths) > 0 else agent_class, *args, **kwargs)})
             elif isinstance(agent_class, BaseAgent):
-                self.update({paths.pop(0): agent_class})
+                self._team.update({paths.pop(0): agent_class})
             else:
-                self.update({paths.pop(0): AgentsTeam({'/'.join(paths): agent_class}, *args, **kwargs) if len(paths) > 0 else agent_class(*args, **kwargs)})
+                self._team.update({paths.pop(0): AgentsTeam({'/'.join(paths): agent_class}, *args, **kwargs) if len(paths) > 0 else agent_class(*args, **kwargs)})
         self.__args = args
         self.__kwargs = kwargs
 
@@ -80,7 +83,7 @@ class AgentsTeam(dict, BaseAgent):
         if key.__contains__('/'):
             key = key.removeprefix('/')
             paths = key.split('/')
-            agent = self
+            agent = self._team
             for path in paths:
                 agent = agent[path.strip()]
             if agent is None:
@@ -96,7 +99,7 @@ class AgentsTeam(dict, BaseAgent):
     def __setitem__(self, key: str, value: TeamLike | AgentLike):
         key = key.removeprefix('/')
         paths = key.split('/')
-        agent = self
+        agent = self._team
         while len(paths) > 0:
             path = paths.pop(0)
             if len(paths) == 0:
@@ -125,7 +128,7 @@ class AgentsTeam(dict, BaseAgent):
         if key.__contains__('/'):
             key = key.removeprefix('/')
             paths = key.split('/')
-            agent = self
+            agent = self._team
             for path in paths:
                 if not agent.get(path):
                     return False
@@ -136,29 +139,29 @@ class AgentsTeam(dict, BaseAgent):
         
     
     def get(self, key: str, default: Optional[BaseAgent] = None):
-        if key in self:
-            return self[key]
+        if key in self._team:
+            return self._team[key]
         return default
         
     
     def __add__(self, other: TeamLike) -> "AgentsTeam":
         other = normalise(other)
         for key, value in other.items():
-            self[key] = value
+            self._team[key] = value
         return self
     
         
     def __radd__(self, other: TeamLike) -> "AgentsTeam":
         other = normalise(other)
         for key, value in other.items():
-            self[key] = value
+            self._team[key] = value
         return self
     
     
     def __iadd__(self, other: TeamLike) -> "AgentsTeam":
         other = normalise(other)
         for key, value in other.items():
-            self[key] = value
+            self._team[key] = value
         return self
 
 

@@ -9,15 +9,17 @@ from vesp.invokation import Invokation
 class AgentMeta(ABCMeta):
     def __sub__(cls, other: Literal["public", "private"]) -> AgentMeta:
         class ScopedAgent(cls):
-            _accessibility = other
+            def __init__(self):
+                self._accessibility = other
 
         ScopedAgent.__class__.__name__ = cls.__name__
         ScopedAgent.__class__.__qualname__ = cls.__qualname__
         return ScopedAgent
 
 
-class BaseAgent(Schematic, metaclass=AgentMeta):  
-    _accessibility = "private"
+class BaseAgent(Schematic, metaclass=AgentMeta): 
+    def __init__(self):
+        self._accessibility = "private"
 
     def __sub__(self, other: Literal["public", "private"]) -> "BaseAgent":
         self._accessibility = other
