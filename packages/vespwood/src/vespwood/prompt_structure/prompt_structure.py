@@ -115,7 +115,7 @@ class PromptStructure(list[PromptLike]):
             co_iterators=co_iterators, 
             co_iter_keys=co_iter_keys, 
             default_co_iter_values=default_co_iter_values, 
-            initial=PromptStructure.load_from_structure(initial),
+            initial=PromptStructure.load_from_structure(initial) if initial else None,
             params=params
         )
 
