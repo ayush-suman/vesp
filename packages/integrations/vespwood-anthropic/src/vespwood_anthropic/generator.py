@@ -4,6 +4,7 @@ import os
 from typing import Any
 from anthropic import AsyncAnthropic, RateLimitError as AnthropicRateLimitError, omit
 from vespwood_generator import (
+    Structured,
     ToolCall,
     message_converter, 
     Message, 
@@ -56,8 +57,8 @@ class AnthropicMessagesGenerator(Generator):
 
     def __init__(self, 
                 api_key: str = os.getenv("ANTHROPIC_API_KEY"),
-                model: str | dict[str, str] = "claude-sonnet-4-5-20250929",
-                timeout: int = 300,
+                model: str | dict[str, str] = "claude-sonnet-4-5",
+                timeout: int = 600,
                 *args,
                 **kwargs):
         self.model_name = model
@@ -92,12 +93,12 @@ class AnthropicMessagesGenerator(Generator):
         
         try:
             message = await self._model.messages.create(
-                max_tokens=8192,
+                max_tokens=128000,
                 model=self.model_name,
                 messages=prompts,
                 tools=anthropic_tools,
             ) if output_format == omit else await self._model.beta.messages.create(
-                max_tokens=8192,
+                max_tokens=128000,
                 model=self.model_name,
                 messages=prompts,
                 tools=anthropic_tools,
@@ -114,7 +115,7 @@ class AnthropicMessagesGenerator(Generator):
             for idx, block in enumerate(message.content):
                 if block.type == "text":
                     if schema and idx == 0:
-                        response.append(json.loads(block.text))
+                        response.append(Structured(json.loads(block.text)))
                     else:
                         response.append(block.text)
                 elif block.type == "tool_use":
