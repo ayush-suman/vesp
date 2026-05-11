@@ -1,5 +1,6 @@
 from vespwood_generator import (
     Message,
+    Structured,
     Response,
     Generator, 
     Schema, 
@@ -13,6 +14,6 @@ class FakeResponseGenerator(Generator):
         if schema:
             jsf = JSF(schema.schema)
             response = jsf.generate()
-            return Response(response)
+            return Response(Structured(response))
         else: 
             return Response("Skip")
