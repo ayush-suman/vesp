@@ -60,7 +60,6 @@ class Completor:
 
         elif isinstance(prompt_structure, PromptStructure):
             self._prompt_structure = prompt_structure
-        
         self._name: str = name or self._prompt_structure.name
         self._description: str | None = description or self._prompt_structure.description
         self._params: Params | None = self._prompt_structure.params
@@ -160,6 +159,7 @@ class Completor:
 
     async def __complete__(self, prepared_args: PreparedArgs) -> tuple[TaggedMessages, FormatKeys]:
         session_id = uuid.uuid4().hex
+        print("Name: ", self._name, "Session ID: ", session_id)
         await invoke_funcs(
             list(map(lambda i: i.bind_name_with_session, self._interceptors)),
             session_id,

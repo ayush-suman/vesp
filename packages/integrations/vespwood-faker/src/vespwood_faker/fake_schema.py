@@ -8,7 +8,7 @@ from vespwood_generator import (
 from jsf import JSF
 
 
-class FakeSchemaGenerator(Generator):
+class FakeResponseGenerator(Generator):
     async def __prompt__(self, messages: list[Message], schema: Schema | None = None, tools: list[Tool] | None = None) -> Response: 
         if schema:
             jsf = JSF(schema.schema)

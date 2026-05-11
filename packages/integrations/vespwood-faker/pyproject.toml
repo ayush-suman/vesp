@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vespwood-faker"
-version = "1.0.11"
+version = "1.0.12"
 description = "Fake generator for Vespwood"
 license = {text = "Apache"}
 readme = "README.md"
@@ -14,10 +14,9 @@ dependencies = [
     "jsf"
 ]
 
-
 [project.urls]
 Homepage = "https://vespwood.com"
 Repository = "https://github.com/ayush-suman/vesp.git"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/vespwood_openai"]
+packages = ["src/vespwood_faker"]

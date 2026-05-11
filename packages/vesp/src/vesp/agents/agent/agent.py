@@ -106,7 +106,6 @@ class LocalAgentMixin:
             
             if generator is None:
                 raise ValueError(f"Generator not defined for local agent {self.__name__}")
-            
             self._completor = Completor(generator,
                 prompt_structure=prompt_structure, 
                 name=name,
