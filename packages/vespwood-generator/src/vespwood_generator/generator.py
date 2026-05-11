@@ -1,4 +1,4 @@
-from abc import abstractmethod, ABC
+from abc import abstractmethod, ABCMeta
 import asyncio
 from typing import Any
 from vespwood_generator.schematic import Schema, Tool
@@ -7,7 +7,12 @@ from vespwood_generator.message import Response, Message
 from vespwood_generator.validator import Validator
 
 
-class Generator(ABC):
+class GeneratorClass(ABCMeta):
+    def __call__(self, *args, **kwds):
+        return super().__call__(*args, **kwds)
+
+
+class Generator(metaclass=GeneratorClass):
     def __init__(self, *args, **kwargs): 
         ...
         
