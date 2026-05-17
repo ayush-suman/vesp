@@ -7,7 +7,6 @@ from abc import abstractmethod
 from vesp.agents import BaseAgent
 from vesp.invokation import Invokation
 from vespwood import (
-    FormatKeys,
     Generator,
     GeneratorClass,
     Interceptor,
@@ -46,17 +45,17 @@ class Agent(BaseAgent, Generic[O]):
     
 
     @abstractmethod
-    async def invoke(self, args: PreparedArgs) -> tuple[TaggedMessages, FormatKeys]:
+    async def invoke(self, args: PreparedArgs) -> tuple[TaggedMessages, dict]:
         '''Accepts args_list, and adds outputs to the Invokation chain object'''
         ...
 
 
     @abstractmethod
-    async def handle_responses(self, messages: TaggedMessages, format_keys: FormatKeys) -> O:
+    async def handle_responses(self, messages: TaggedMessages, format_keys: dict) -> O:
         ...
 
 
-    def __get_output__(self, messages: TaggedMessages, format_keys: FormatKeys, *, future: asyncio.Future | None = None, chain: Invokation[O] | None = None) -> O:
+    def __get_output__(self, messages: TaggedMessages, format_keys: dict, *, future: asyncio.Future | None = None, chain: Invokation[O] | None = None) -> O:
         def on_output(output: O):
             if chain: chain.add_output(output)
             if future: future.set_result(output)
@@ -121,7 +120,7 @@ class LocalAgentMixin:
             super().__init__(*args, **kwargs)
 
 
-    async def invoke(self, args: PreparedArgs) -> tuple[TaggedMessages, FormatKeys]:
+    async def invoke(self, args: PreparedArgs) -> tuple[TaggedMessages, dict]:
         return await self._completor(args)
 
 

@@ -13,7 +13,7 @@ from vespwood_generator import (
 from vespwood.types import PreparedArgs, HooksList, Params
 from vespwood._utils import invoke_funcs
 from vespwood.interceptor import Interceptor
-from vespwood.format_object import FormatKeys
+# from vespwood._format_object import FormatKeys
 from vespwood.tagged_messages import TaggedMessages
 from vespwood.hook import Hook
 from vespwood.prompt_structure import PromptStructure, MessageList
@@ -139,25 +139,25 @@ class Completor:
         return self._validators
 
 
-    def _invoke_hooks(self, hooks: HooksList, response: Response, messages: TaggedMessages, format_keys: FormatKeys) -> dict[str, Any]:
-        new_keys = {}            
+    def _invoke_hooks(self, hooks: HooksList, response: Response, messages: TaggedMessages, format_keys: dict) -> dict[str, Any]:
+        new_keys = {}
         for hook in hooks:
             if isinstance(hook, str):
                 i = bisect.bisect_left(self.hooks, hook, key=lambda h: h.name)
                 if i == len(self.hooks) or self.hooks[i].name != hook:
                     raise MissingHookError([hook])
-                k = self.hooks[i](response, messages, format_keys.copy_with_extra(**new_keys))
+                k = self.hooks[i](response, messages, format_keys | new_keys)
                 if k: new_keys.update(k)
             elif isinstance(hook, dict):
                 i = bisect.bisect_left(self.hooks, hook["name"], key=lambda h: h.name)
                 if i == len(self.hooks) or self.hooks[i].name != hook["name"]:
                     raise MissingHookError([hook["name"]])
-                k = self.hooks[i](response, messages, format_keys.copy_with_extra(**new_keys), **(hook["args"] if "args" in hook else {}))
+                k = self.hooks[i](response, messages, format_keys | new_keys, **(hook.get("args", {})))
                 if k: new_keys.update(k)
         return new_keys
     
 
-    async def __complete__(self, prepared_args: PreparedArgs) -> tuple[TaggedMessages, FormatKeys]:
+    async def __complete__(self, prepared_args: PreparedArgs) -> tuple[TaggedMessages, dict[str, Any]]:
         session_id = uuid.uuid4().hex
         print("Name: ", self._name, "Session ID: ", session_id)
         await invoke_funcs(
@@ -168,6 +168,7 @@ class Completor:
         )
         message_list = MessageList.from_prompt_structure(self._prompt_structure, keys=prepared_args)
         prompts, format_keys, tag, schema, tools, hooks, validators, saves = message_list.get_prompt_list()
+        print("Received tag", tag)
         while tag:
             on_response_callbacks = await invoke_funcs(
                 self._interceptors,
@@ -268,7 +269,7 @@ class Completor:
         return message_list.tagged_messages, message_list.format_keys
     
 
-    async def __schedule__(self, prepared_args: PreparedArgs) -> tuple[TaggedMessages, FormatKeys]:
+    async def __schedule__(self, prepared_args: PreparedArgs) -> tuple[TaggedMessages, dict[str, Any]]:
         if self._generation_queue.full():
             print("Generation queue is full. Waiting for a request to complete.")
         async with self._lock:
@@ -278,7 +279,7 @@ class Completor:
         return await self.__complete__(prepared_args=prepared_args)
 
 
-    async def __call__(self, args: PreparedArgs) -> tuple[TaggedMessages, FormatKeys]:
+    async def __call__(self, args: PreparedArgs) -> tuple[TaggedMessages, dict[str, Any]]:
         if self.params:
             params = set(map(lambda p: p if isinstance(p, str) else list(p)[0], params))
             if diff := params - set(args):

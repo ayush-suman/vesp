@@ -7,7 +7,6 @@ from vespwood_generator import (
 )
 from vespwood.message import Prompt
 from vespwood.types import HooksList, Saves, SchemaInfo, ToolsList, ValidatorsList
-from vespwood.format_object import FormatKeys
 
 
 class OnResponse(Protocol):
@@ -28,7 +27,7 @@ class InterceptorFn(Protocol):
         self,
         session_id: str,
         prompts: list[Prompt],
-        format_keys: FormatKeys,
+        format_keys: dict,
         tag: Tag,
         schema: SchemaInfo | None = None,
         tools: ToolsList | None = None,
@@ -43,7 +42,7 @@ class AsyncInterceptorFn(Protocol):
         self,
         session_id: str,
         prompts: list[Prompt],
-        format_keys: FormatKeys,
+        format_keys: dict,
         tag: Tag,
         schema: SchemaInfo | None = None,
         tools: ToolsList | None = None,
@@ -73,7 +72,7 @@ class Interceptor(ABC, InterceptorFn):
         self,
         session_id: str,
         prompts: list[Prompt],
-        format_keys: FormatKeys,
+        format_keys: dict,
         tag: Tag,
         schema: SchemaInfo | None = None,
         tools: ToolsList | None = None,
@@ -87,7 +86,7 @@ class Interceptor(ABC, InterceptorFn):
         self,
         session_id: str,
         prompts: list[Prompt],
-        format_keys: FormatKeys,
+        format_keys: dict,
         tag: Tag,
         schema: SchemaInfo | None = None,
         tools: ToolsList | None = None,
@@ -119,7 +118,7 @@ class AsyncInterceptor(ABC, AsyncInterceptorFn):
         self,
         session_id: str,
         prompts: list[Prompt],
-        format_keys: FormatKeys,
+        format_keys: dict,
         tag: Tag,
         schema: SchemaInfo | None = None,
         tools: ToolsList | None = None,
@@ -133,7 +132,7 @@ class AsyncInterceptor(ABC, AsyncInterceptorFn):
         self,
         session_id: str,
         prompts: list[Prompt],
-        format_keys: FormatKeys,
+        format_keys: dict,
         tag: Tag,
         schema: SchemaInfo | None = None,
         tools: ToolsList | None = None,
@@ -166,7 +165,7 @@ def interceptor(func: InterceptorFn | AsyncInterceptorFn, *, name_session: NameS
                     self,
                     session_id: str,
                     prompts: list[Prompt],
-                    format_keys: FormatKeys,
+                    format_keys: dict,
                     tag: Tag,
                     schema: SchemaInfo | None = None,
                     tools: ToolsList | None = None,
@@ -196,7 +195,7 @@ def interceptor(func: InterceptorFn | AsyncInterceptorFn, *, name_session: NameS
                     self,
                     session_id: str,
                     prompts: list[Prompt],
-                    format_keys: FormatKeys,
+                    format_keys: dict,
                     tag: Tag,
                     schema: SchemaInfo | None = None,
                     tools: ToolsList | None = None,

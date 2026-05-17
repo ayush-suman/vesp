@@ -2,8 +2,9 @@ from __future__ import annotations
 import copy
 import uuid
 
-from typing import Any, Self, TypeAlias
+from typing import Any, TypeAlias
 
+from ._format_object import FormatInt, FormatList, FormatKeys, to_format_object
 from vespwood_generator import Tag, Message
 
 from vespwood.types import (
@@ -18,7 +19,6 @@ from vespwood.parse_expr import parse_exprs, parse_dict
 from vespwood.match import match
 from vespwood.expression import Expression
 from vespwood.logic import Logic
-from vespwood.format_object import FormatKeys
 from vespwood.message import Prompt
 
 
@@ -45,7 +45,7 @@ class PromptStructure(list[PromptLike]):
                 index_key: str | None = None,
                 co_iterators: list[str] | None = None, 
                 co_iter_keys: list[str | None] | None = None,
-                default_co_iter_values: list[str | None] | None = None,
+                default_co_iter_values: list[Any] | None = None,
                 initial: PromptStructure | None = None,
                 whilekey: str | None = None,
                 ifkey: str | None = None,
@@ -386,7 +386,7 @@ class PromptStructure(list[PromptLike]):
 
 
     @property
-    def normalised(self) -> PromptStructure:
+    def normalized(self) -> PromptStructure:
         return PromptStructure(list(self))
 
 
@@ -492,10 +492,10 @@ class PromptStructure(list[PromptLike]):
                 mapping = format_keys.get_params(prompt_structure._params)
                 prompt_structure._iterator = prompt_structure._iterator.format_map(mapping)
                 prompt_structure._co_iterators = [co_iter.format_map(mapping) for co_iter in (prompt_structure._co_iterators or [])]
-            iterator = format_keys[prompt_structure._iterator]
+            iterator: FormatList = format_keys[prompt_structure._iterator]
             iter_key = prompt_structure._iter_key
             index_key = prompt_structure._index_key
-            co_iterators = [format_keys[co_iter] for co_iter in (prompt_structure._co_iterators or [])]
+            co_iterators: list[FormatList] = [format_keys[co_iter] for co_iter in (prompt_structure._co_iterators or [])]
             co_iter_keys = prompt_structure._co_iter_keys
             default_co_iter_values = prompt_structure._default_co_iter_values
             for index, value in enumerate(iterator):
@@ -503,15 +503,15 @@ class PromptStructure(list[PromptLike]):
                 if prompt_structure.has_initial and index == 0:
                     structure = prompt_structure._initial
                 else:
-                    structure = prompt_structure.normalised
+                    structure = prompt_structure.normalized
                 indexed_structure = structure.indexed(index)
-                extra_keys = { iter_key : value, index_key: index }
+                extra_keys = { iter_key : value, index_key: FormatInt(index) }
                 for idx, co_iterator in enumerate(co_iterators):
                     if len(co_iterator) <= index or co_iterator[index] is None:
-                        extra_keys.update({co_iter_keys[idx]: default_co_iter_values[idx] if default_co_iter_values else None})
+                        extra_keys[co_iter_keys[idx]] = to_format_object(default_co_iter_values[idx]) if default_co_iter_values else None
                     else:
-                        extra_keys.update({co_iter_keys[idx]: co_iterator[index]})
-                format_keys = format_keys.copy_with_extra(**extra_keys)
+                        extra_keys[co_iter_keys[idx]] = co_iterator[index]
+                format_keys = format_keys.copy_with(extra_keys)
                 prompts, format_keys, tag, *rest = indexed_structure.get_usables(format_keys, tagged_messages=tagged_messages)
                 msgs.extend(prompts)
                 if tag: return msgs, format_keys, tag, *rest
@@ -526,7 +526,7 @@ class PromptStructure(list[PromptLike]):
             for case in prompt_structure._cases:
                 if case.match(case_data, format_keys):
                     return case.get_usables(format_keys, tagged_messages=tagged_messages)
-            normalised_structure = prompt_structure.normalised
+            normalised_structure = prompt_structure.normalized
             return normalised_structure.get_usables(format_keys, tagged_messages=tagged_messages)
             
         # If
@@ -537,7 +537,7 @@ class PromptStructure(list[PromptLike]):
             case_data = format_keys[prompt_structure._if]
             if prompt_structure.match(case_data, format_keys):
                 return prompt_structure._then.get_usables(format_keys, tagged_messages=tagged_messages)
-            normalised_structure = prompt_structure.normalised
+            normalised_structure = prompt_structure.normalized
             return normalised_structure.get_usables(format_keys, tagged_messages=tagged_messages)
         
         # While
@@ -553,10 +553,10 @@ class PromptStructure(list[PromptLike]):
                 if prompt_structure.has_initial and index == 0:
                     structure = prompt_structure._initial
                 else:
-                    structure = prompt_structure.normalised
+                    structure = prompt_structure.normalized
                 indexed_structure = structure.indexed(index)
-                extra_keys = { index_key: index }
-                format_keys = format_keys.copy_with_extra(**extra_keys)
+                extra_keys = { index_key: FormatInt(index) }
+                format_keys = format_keys.copy_with(extra_keys)
                 prompts, format_keys, tag, *rest = indexed_structure.get_usables(format_keys, tagged_messages=tagged_messages)
                 msgs.extend(prompts)
                 if not f"{prompt_structure._while}?{self._id}#{index}" in format_keys:

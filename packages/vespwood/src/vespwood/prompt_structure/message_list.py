@@ -12,8 +12,9 @@ from vespwood.types import (
     Saves
 )
 from vespwood.message import Prompt
-from vespwood.format_object import FormatKeys
 from vespwood.tagged_messages import TaggedMessages
+
+from ._format_object import FormatKeys, to_format_object
 from .prompt_structure import PromptStructure
 
 
@@ -68,7 +69,7 @@ class MessageList(PromptStructure):
             cases=cases,
             params=params
         )
-        self._format_keys: FormatKeys = FormatKeys(kwargs)
+        self._format_keys: FormatKeys = to_format_object(kwargs)
         self._tagged_messages: dict[str, Message] = {}
 
 
@@ -98,6 +99,7 @@ class MessageList(PromptStructure):
             params=prompt_structure.params
             
         )
+        keys = to_format_object(keys)
         self._format_keys.update(keys)
         return self
     
@@ -108,11 +110,11 @@ class MessageList(PromptStructure):
     
 
     @property
-    def format_keys(self) -> FormatKeys:
-        return self._format_keys
+    def format_keys(self) -> dict[str, Any]:
+        return self._format_keys.normalized
     
 
-    def  get_prompt_list(self) -> tuple[list[Prompt], FormatKeys, Tag | None, SchemaInfo | None, ToolsList | None, HooksList | None, ValidatorsList | None, Saves | None]:
+    def  get_prompt_list(self) -> tuple[list[Prompt], dict[str, Any], Tag | None, SchemaInfo | None, ToolsList | None, HooksList | None, ValidatorsList | None, Saves | None]:
         msgs, format_keys, tag, *rest = self.get_usables(self._format_keys, tagged_messages=self._tagged_messages)
         for prompt in msgs:
             if prompt.is_tagged:
@@ -131,24 +133,20 @@ class MessageList(PromptStructure):
                         msgs.append(prompt)
                         return msgs, format_keys, *([None] * 6)
 
-        return msgs, format_keys, tag, *rest
+        return msgs, format_keys.normalized, tag, *rest
     
 
     def add_response(self, response: Response, *, keys: dict[str, Any] = {}):
         self._tagged_messages[response.tag] = response
         if any(isinstance(block, dict) for block in response):
-            self.format_keys[response.tag] = list(filter(lambda b: isinstance(b, dict), response.content))[0]
+            self._format_keys[response.tag] = to_format_object(list(filter(lambda b: isinstance(b, dict), response.content))[0])
+        keys = to_format_object(keys)
+        
         self._format_keys.update(keys)
 
 
-    def update_message(self, tag: str, message: Message):
-        if not tag in self._tagged_messages:
-            raise ValueError(f"Tag {tag} not found in MessageList")
-        self._tagged_messages[tag] = message
-        self._format_keys[tag] = message.content
-
-
     def add_keys(self, keys: dict[str, Any]):
+        keys = to_format_object(keys)
         self._format_keys.update(keys)
 
 
