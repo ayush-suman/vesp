@@ -492,6 +492,8 @@ class PromptStructure(list[PromptLike]):
                 mapping = format_keys.get_params(prompt_structure._params)
                 prompt_structure._iterator = prompt_structure._iterator.format_map(mapping)
                 prompt_structure._co_iterators = [co_iter.format_map(mapping) for co_iter in (prompt_structure._co_iterators or [])]
+            import json
+            print("Getting iterator from ", json.dumps(format_keys, indent=2), "with key:", prompt_structure._iterator)
             iterator: FormatList = format_keys[prompt_structure._iterator]
             iter_key = prompt_structure._iter_key
             index_key = prompt_structure._index_key

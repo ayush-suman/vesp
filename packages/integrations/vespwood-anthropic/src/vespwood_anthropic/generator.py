@@ -16,6 +16,7 @@ from vespwood_generator import (
     MaxTokenLimitError, 
     StopGeneration
 )
+from vespwood_generator.blocks.structured import Structured
 
 
 @message_converter
@@ -109,14 +110,18 @@ class AnthropicMessagesGenerator(Generator):
             if message.stop_reason == "refusal":
                 raise StopGeneration(f"Anthropic model {self.model_name} refused to respond to this request")
             
-            # Tool Call
+            # Structured
+            if schema:
+                try:
+                    return Response(Structured(json.loads("".join([block.text for block in message.content if block.type=="text"]))))
+                except Exception as e:
+                    print("\n\n**Failed to parse response as JSON**\nblock: \n\n", block.text)
+                    raise e
+                
             response = Response([])
-            for idx, block in enumerate(message.content):
+            for block in message.content:
                 if block.type == "text":
-                    if schema and idx == 0:
-                        response.append(json.loads(block.text))
-                    else:
-                        response.append(block.text)
+                    response.append(block.text)
                 elif block.type == "tool_use":
                     response.append(ToolCall(id=block.id, name=block.name, arguments=block.input))
                 elif block.type == "thinking":

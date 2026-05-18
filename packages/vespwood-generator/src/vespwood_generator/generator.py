@@ -21,16 +21,15 @@ class Generator(metaclass=GeneratorClass):
     async def __prompt__(self, 
         messages: list[Message], 
         schema: Schema | None = None,
-        tools: list[Tool] | None = None, 
-        assistant_response: Message | None = None, 
-        validator_response: Message | None = None, 
-    ): ...
+        tools: list[Tool] | None = None
+    ) -> Response: ...
 
 
-    async def get_response(self, messages: list[Message], format_keys: dict[str, Any], schema: Schema | None, tools: list[Tool] | None, validators: list[Validator] | None, continue_on_max_token: bool = True, retry_on_rate_limit: bool = True, retry_with_delay: int = 0, **kwargs) -> Response:
+    async def get_response(self, messages: list[Message], format_keys: dict[str, Any], schema: Schema | None, tools: list[Tool] | None, validators: list[Validator] | None, continue_on_max_token: bool = True, retry_on_rate_limit: bool = True, retry_with_delay: int = 0) -> Response:
         response = None
         try:
-            response = await self.__prompt__(messages, schema, tools, **kwargs)
+            response = await self.__prompt__(messages, schema, tools)
+            print("Received response:", response.content)
             if validators:
                 for v in validators: v.validate(messages, response, format_keys)
             return response

@@ -4,7 +4,7 @@ from vespwood_generator.types import Role
 
 
 class Message:
-    __slots__ = "_role", "_content", "_structured"
+    __slots__ = "_role", "_content"
 
     def __init__(self, 
         role: Role, 
@@ -12,15 +12,11 @@ class Message:
     ):
         self._role = role
         self._content: list[Block] = []
-        self._structured: dict = {}
         if isinstance(content, (str, Structured, ToolCall, Image, File)):
             self._content = [content]
         elif isinstance(content, list):
             self._content = content
-
-        for block in self.content:
-            if isinstance(block, Structured):
-                self._structured.update(block)    
+             
     
     @property
     def role(self) -> Role:
@@ -40,14 +36,19 @@ class Message:
     
     def append(self, block: Block):
         self._content.append(block)
-        if isinstance(block, Structured):
-            self._structured.update(block)
     
     def extend(self, content: list[Block]):
         for block in content: self.append(block)
 
     def __getitem__(self, key):
-        if key in self._structured: return self._structured.__getitem__(key)
+        print(f"Message.__getitem__ called with key: {key}")
+        for block in self.content:
+            print("block of type:", type(block))
+            if isinstance(block, Structured): 
+                print(f"Checking block: {block}")
+                return block[key]
+            else: 
+                return None
 
     def __setitem__(self, *_):
         raise NotImplementedError("Setting values to Message is not supported")
