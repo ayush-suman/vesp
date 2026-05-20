@@ -556,7 +556,7 @@ class PromptStructure(list[PromptLike]):
             case_data = get_from_format_key(prompt_structure._while)
             index_key = prompt_structure._index_key
             index = 0
-            while prompt_structure.match(case_data.extras[f"{self._id}#{index}"] or case_data.normalized, format_keys):
+            while prompt_structure.match(case_data.extras.get(f"{self._id}#{index}") or case_data.normalized, format_keys):
                 structure = None
                 if prompt_structure.has_initial and index == 0:
                     structure = prompt_structure._initial
