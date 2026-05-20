@@ -10,8 +10,7 @@ from vespwood_generator import (
     Response,
     Generator, 
     Schema, 
-    Tool, 
-    Role, 
+    Tool,
     RateLimitError, 
     MaxTokenLimitError, 
     StopGeneration
@@ -58,7 +57,8 @@ class AnthropicMessagesGenerator(Generator):
     def __init__(self, 
                 api_key: str = os.getenv("ANTHROPIC_API_KEY"),
                 model: str | dict[str, str] = "claude-sonnet-4-5-20250929",
-                timeout: int = 300,
+                max_tokens: int = 4096,
+                timeout: int = 30,
                 *args,
                 **kwargs):
         self.model_name = model
@@ -68,11 +68,13 @@ class AnthropicMessagesGenerator(Generator):
     async def __prompt__(self, messages: list[Message], schema: Schema | None = None, tools: list[Tool] | None = None):
         prompts = _anthropic_messages_msg_converter(messages)
         
-        output_format = omit
+        output_config = omit
         if schema:
-            output_format = {
-                "type": "json_schema", 
-                "schema": schema.schema,
+            output_config = {
+                "format": {
+                    "type": "json_schema", 
+                    "schema": schema.schema,
+                }
             }
 
 
@@ -93,17 +95,11 @@ class AnthropicMessagesGenerator(Generator):
         
         try:
             message = await self._model.messages.create(
-                max_tokens=8192,
+                max_tokens=128000,
                 model=self.model_name,
                 messages=prompts,
                 tools=anthropic_tools,
-            ) if output_format == omit else await self._model.beta.messages.create(
-                max_tokens=8192,
-                model=self.model_name,
-                messages=prompts,
-                tools=anthropic_tools,
-                output_format=output_format,
-                betas=["structured-outputs-2025-11-13"]
+                output_config=output_config,
             )
 
             # Refusal

@@ -24,9 +24,11 @@ class Schema(type[T], Schematic, Generic[T]):
 
 
     def __new__(mcs, name, bases=(), ns={}, *, skip_init = False):
+        _name = ns.pop("_name", None)
+        _description = ns.pop("_description", None)
         cls = super().__new__(mcs, name, bases, ns)
-        if getattr(cls, "_name", None) is None: cls._name = name
-        if not hasattr(cls, "_description"): cls._description = None
+        cls._name = _name or name
+        cls._description = _description or None
         if not skip_init: cls = setup_init(cls)
         cls._schema = Schematic.to_json_schema(cls)
         return cls

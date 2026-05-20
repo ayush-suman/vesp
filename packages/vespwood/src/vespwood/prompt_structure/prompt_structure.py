@@ -486,18 +486,24 @@ class PromptStructure(list[PromptLike]):
         msgs: list[Prompt] = []
         allNone = ([None] * 6)
 
+        def get_from_format_key(key: str):
+            f = format_keys
+            key_parts = key.split(".")
+            for part in key_parts:
+                f = f[part]
+            return f
+
         # Iterator
         if prompt_structure.is_iterator:
             if prompt_structure._params:
                 mapping = format_keys.get_params(prompt_structure._params)
                 prompt_structure._iterator = prompt_structure._iterator.format_map(mapping)
                 prompt_structure._co_iterators = [co_iter.format_map(mapping) for co_iter in (prompt_structure._co_iterators or [])]
-            import json
-            print("Getting iterator from ", json.dumps(format_keys, indent=2), "with key:", prompt_structure._iterator)
-            iterator: FormatList = format_keys[prompt_structure._iterator]
+           
+            iterator: FormatList = get_from_format_key(prompt_structure._iterator)
             iter_key = prompt_structure._iter_key
             index_key = prompt_structure._index_key
-            co_iterators: list[FormatList] = [format_keys[co_iter] for co_iter in (prompt_structure._co_iterators or [])]
+            co_iterators: list[FormatList] = [get_from_format_key(co_iter) for co_iter in (prompt_structure._co_iterators or [])]
             co_iter_keys = prompt_structure._co_iter_keys
             default_co_iter_values = prompt_structure._default_co_iter_values
             for index, value in enumerate(iterator):
@@ -524,7 +530,7 @@ class PromptStructure(list[PromptLike]):
             if prompt_structure._params:
                 mapping = format_keys.get_params(prompt_structure._params)
                 prompt_structure._switch = prompt_structure._switch.format_map(mapping)
-            case_data = format_keys[prompt_structure._switch]
+            case_data = get_from_format_key(prompt_structure._switch)
             for case in prompt_structure._cases:
                 if case.match(case_data, format_keys):
                     return case.get_usables(format_keys, tagged_messages=tagged_messages)
@@ -536,7 +542,7 @@ class PromptStructure(list[PromptLike]):
             if prompt_structure._params:
                 mapping = format_keys.get_params(prompt_structure._params)
                 prompt_structure._if = prompt_structure._if.format_map(mapping)
-            case_data = format_keys[prompt_structure._if]
+            case_data = get_from_format_key(prompt_structure._if)
             if prompt_structure.match(case_data, format_keys):
                 return prompt_structure._then.get_usables(format_keys, tagged_messages=tagged_messages)
             normalised_structure = prompt_structure.normalized
@@ -547,10 +553,10 @@ class PromptStructure(list[PromptLike]):
             if prompt_structure._params:
                 mapping = format_keys.get_params(prompt_structure._params)
                 prompt_structure._while = prompt_structure._while.format_map(mapping)
-            case_data = format_keys[prompt_structure._while]
+            case_data = get_from_format_key(prompt_structure._while)
             index_key = prompt_structure._index_key
             index = 0
-            while prompt_structure.match(format_keys.get(f"{prompt_structure._while}?{self._id}#{index}", case_data), format_keys):
+            while prompt_structure.match(case_data.extras[f"{self._id}#{index}"] or case_data.normalized, format_keys):
                 structure = None
                 if prompt_structure.has_initial and index == 0:
                     structure = prompt_structure._initial
@@ -561,8 +567,10 @@ class PromptStructure(list[PromptLike]):
                 format_keys = format_keys.copy_with(extra_keys)
                 prompts, format_keys, tag, *rest = indexed_structure.get_usables(format_keys, tagged_messages=tagged_messages)
                 msgs.extend(prompts)
-                if not f"{prompt_structure._while}?{self._id}#{index}" in format_keys:
-                    format_keys[f"{prompt_structure._while}?{self._id}#{index}"] = case_data
+
+                if not f"{self._id}#{index}" in case_data.extras:
+                    case_data.extras[f"{self._id}#{index}"] = case_data.normalized
+                
                 if tag: return msgs, format_keys, tag, *rest
                 index += 1
             return msgs, format_keys, *allNone
