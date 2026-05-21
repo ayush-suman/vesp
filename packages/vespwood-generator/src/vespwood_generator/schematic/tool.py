@@ -12,7 +12,7 @@ class Tool(Schematic, Generic[I, O]):
         self._name: str = name or func.__name__
         self._description: str | None = description or func.__doc__ or self.__doc__
         self._schema: dict[str, Any] | None = Schematic.to_json_schema(func) if func else None
-        self.__call__: Callable[I, O] = func
+        self.__function__: Callable[I, O] = func
 
 
     def update_with(self, *, name: str, description: str, schema: dict[str, Any]):
@@ -28,15 +28,19 @@ class Tool(Schematic, Generic[I, O]):
     def name(self) -> str:
         return self._name
     
+
     @property
     def description(self) -> str | None:
         return self._description or self.__doc__
     
+
     @property
     def schema(self) -> dict[str, Any]:
         return self._schema
     
 
+    def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O:
+        return self.__function__(*args, **kwargs)
 
 
 def tool(func: Callable | None = None, *, name: str | None = None, description: str | None = None) -> Tool:
