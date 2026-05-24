@@ -40,9 +40,9 @@ class FormatList(list[FormatObject | None], FormatObject):
                 idx, i = i.split("?", 1)
                 try: idx = int(idx)
                 except: raise TypeError("Key before ? should be an integer for FormatList objects")
-                self = super(list, self).__getitem__(idx)    
-            return super(FormatObject, self).__getitem__(i)
-        return super(list, self).__setitem__(i)
+                self = list.__getitem__(self, idx)    
+            return FormatObject.__getitem__(self, i)
+        return list.__getitem__(self, i)
     
 
     @overload
@@ -57,8 +57,8 @@ class FormatList(list[FormatObject | None], FormatObject):
                 idx, i = i.split("?", 1)
                 try: idx = int(idx)
                 except: raise TypeError("Key before ? should be an integer for FormatList objects")
-                self = super(list, self).__getitem__(idx)    
-            super(FormatObject, self).__setitem__(i, v)
+                self = list.__getitem__(self, idx)    
+            FormatObject.__setitem__(self, i, v)
         else:     
             if isinstance(i, slice):
                 assert isinstance(v, list), "Value should be a list when assigning to a slice"
@@ -67,7 +67,7 @@ class FormatList(list[FormatObject | None], FormatObject):
             elif isinstance(i, SupportsIndex):
                 if v is not None and not isinstance(v, FormatObject):
                     raise ValueError("Only instances of FormatObject can be assigned to FormatList")
-            super(list, self).__setitem__(i, v)
+            list.__setitem__(self, i, v)
 
 
     @property

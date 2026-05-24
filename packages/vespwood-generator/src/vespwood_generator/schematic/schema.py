@@ -134,8 +134,11 @@ def schema(cls: type[S] | None = None, /, *, name: str | None = None, descriptio
     def wrapper(cls) -> Schema[S]: 
         CombinedMeta = Schema
         if cls.__bases__:
-            meta = [type(base) for base in cls.__bases__]
-            CombinedMeta = type("Schema", (Schema, *meta), {})
+            meta = [base.__class__ for base in cls.__bases__]
+            if not any(Schema in m.__mro__ for m in meta):
+                CombinedMeta = type("Schema", (Schema, *meta), {})
+            else: 
+                CombinedMeta = type("Schema", tuple(meta), {})
         class Wrapper(cls, metaclass=CombinedMeta):
             _name = name
             _description = description
