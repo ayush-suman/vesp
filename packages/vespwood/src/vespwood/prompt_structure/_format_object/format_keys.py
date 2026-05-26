@@ -50,6 +50,9 @@ class FormatKeys(dict[str, FormatObject | None], FormatObject):
     
 
     def __getitem__(self, key: str):
+        if key.startswith("_"):
+            return None
+        
         if "?" in key:
             base_key, extra_key = key.split("?", 1)
             object = self if base_key == "" else self.__getitem__(base_key)

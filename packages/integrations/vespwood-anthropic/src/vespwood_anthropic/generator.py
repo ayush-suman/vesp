@@ -58,7 +58,7 @@ class AnthropicMessagesGenerator(Generator):
                 api_key: str = os.getenv("ANTHROPIC_API_KEY"),
                 model: str | dict[str, str] = "claude-sonnet-4-5-20250929",
                 max_tokens: int = 4096,
-                timeout: int = 30,
+                timeout: int = 300,
                 *args,
                 **kwargs):
         self.model_name = model
