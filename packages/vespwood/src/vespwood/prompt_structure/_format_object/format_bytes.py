@@ -4,6 +4,8 @@ from .format_object import FormatObject
 class FormatBytes(bytes, FormatObject):
     def __format__(self, format_spec: str):
         match format_spec:
+            case "utf-8":
+                return self.decode()
             case "hex":
                 return self.hex(sep=" ").upper()
             case "binary":

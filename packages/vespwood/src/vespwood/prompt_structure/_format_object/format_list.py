@@ -78,3 +78,28 @@ class FormatList(list[FormatObject | None], FormatObject):
     @property
     def json(self) -> list[Any]:
         return [v.json if v is not None else None for v in self]
+
+
+    def __format__(self, format_spec: str):        
+        def sanitise(data: Any):
+            if isinstance(data, dict):
+                return { 
+                    key: sanitise(value) 
+                    for key, value in data.items() 
+                    if (isinstance(key, str) and not key.startswith("_")) 
+                    or not isinstance(key, str) 
+                }
+            elif isinstance(data, list):
+                return [sanitise(value) for value in data]
+            return data
+        
+        value = sanitise(self)
+        match format_spec:
+            case "pretty":
+                import json
+                value = json.dumps(value, indent=2)
+            case "count" | "length":
+                return str(len(value))
+            case _:
+                value = format(value, format_spec)
+        return value
