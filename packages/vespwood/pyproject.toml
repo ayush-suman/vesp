@@ -4,9 +4,9 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vespwood"
-version = "1.0.14"
+version = "1.0.15"
 description = "Declarative framework for LLMs"
-license = {text = "Apache"}
+license = { text = "Apache" }
 readme = "README.md"
 requires-python = ">=3.11.0,<4.0.0"
 dependencies = [

@@ -141,6 +141,10 @@ class FormatKeys(dict[str, FormatObject | None], FormatObject):
             return self.extras["__object__"]
         return { k: v.normalized if v is not None else None for k, v in self.items() }
     
+    @property
+    def json(self) -> dict[str, Any]:
+        return { k: v.json if v is not None else None for k, v in self.items() }
+    
     
     def __repr__(self) -> str:
         return repr({k: v for k, v in self.items() if not k.startswith("_")})

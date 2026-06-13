@@ -12,5 +12,9 @@ class FormatBytes(bytes, FormatObject):
                 return super().__format__(format_spec)
 
     @property
-    def normalized(self):
+    def normalized(self) -> bytes:
         return bytes(self)
+    
+    @property
+    def json(self) -> str:
+        return self.hex(' ')

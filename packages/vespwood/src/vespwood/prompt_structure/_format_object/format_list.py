@@ -71,5 +71,10 @@ class FormatList(list[FormatObject | None], FormatObject):
 
 
     @property
-    def normalized(self):
+    def normalized(self) -> list[Any]:
         return [v.normalized if v is not None else None for v in self]
+    
+
+    @property
+    def json(self) -> list[Any]:
+        return [v.json if v is not None else None for v in self]

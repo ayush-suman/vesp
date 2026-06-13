@@ -29,6 +29,11 @@ class FormatObject(ABC):
     def normalized(self) -> Any:
         ...
 
+    @property
+    @abstractmethod
+    def json(self) -> Any:
+        ...
+
     def __getitem__(self, key: str):
         return self.extras.get(key)
 
