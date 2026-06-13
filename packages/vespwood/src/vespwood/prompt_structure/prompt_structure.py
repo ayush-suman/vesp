@@ -372,12 +372,12 @@ class PromptStructure(list[PromptLike]):
 
     @property
     def has_initial(self) -> bool:
-        return self.is_iterator and self._initial is not None
+        return self._initial is not None
     
 
     @property
     def is_switch(self) -> bool: 
-        return self._switch
+        return self._switch is not None
     
 
     @property

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vespwood-anthropic"
-version = "1.0.10"
+version = "1.0.12"
 description = "Anthropic integration for Vespwood"
 license = {text = "Apache"}
 readme = "README.md"

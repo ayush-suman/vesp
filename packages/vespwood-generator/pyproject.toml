@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "vespwood-generator"
-version = "1.0.11"
+version = "1.0.12"
 description = "Generator used by vespwood"
 license = {text = "Apache"}
 readme = "README.md"
