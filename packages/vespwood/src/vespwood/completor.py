@@ -170,18 +170,6 @@ class Completor:
         prompts, format_keys, tag, schema, tools, hooks, validators, saves = message_list.get_prompt_list()
         print("Received tag", tag)
         while tag:
-            on_response_callbacks = await invoke_funcs(
-                self._interceptors,
-                session_id,
-                prompts,
-                format_keys, 
-                tag, 
-                schema, 
-                tools, 
-                hooks, 
-                validators, 
-                saves
-            )
             for prompt in prompts:
                 for block in prompt:
                     if isinstance(block, ToolCall) and block.result is None:
@@ -204,7 +192,7 @@ class Completor:
                     except KeyError as e:
                         raise MissingSchemaError([*e.args]) 
 
-            _tools = []
+            _tools: list[Tool] = []
             if tools:
                 _missing_tools = [] 
                 for tool in tools:
@@ -236,6 +224,18 @@ class Completor:
                     _validators.append(_validator)
              
             try:
+                on_response_callbacks = await invoke_funcs(
+                    self._interceptors,
+                    session_id,
+                    prompts,
+                    format_keys, 
+                    tag, 
+                    _schema, 
+                    _tools, 
+                    hooks, 
+                    _validators, 
+                    saves
+                )
                 response = await self._generator.get_response(
                     prompts, 
                     format_keys, 

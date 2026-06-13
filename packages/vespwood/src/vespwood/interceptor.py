@@ -3,10 +3,10 @@ from collections.abc import Callable, Awaitable
 import inspect
 from typing import Protocol, TypeAlias, overload
 from vespwood_generator import (
-    Tag, Response,
+    Tag, Response, Schema, Tool
 )
 from vespwood.message import Prompt
-from vespwood.types import HooksList, Saves, SchemaInfo, ToolsList, ValidatorsList
+from vespwood.types import HooksList, Saves, ValidatorsList
 
 
 class OnResponse(Protocol):
@@ -29,8 +29,8 @@ class InterceptorFn(Protocol):
         prompts: list[Prompt],
         format_keys: dict,
         tag: Tag,
-        schema: SchemaInfo | None = None,
-        tools: ToolsList | None = None,
+        schema: Schema | None = None,
+        tools: list[Tool] | None = None,
         hooks: HooksList | None = None,
         validators: ValidatorsList | None = None,
         saves: Saves | None = None,
@@ -44,8 +44,8 @@ class AsyncInterceptorFn(Protocol):
         prompts: list[Prompt],
         format_keys: dict,
         tag: Tag,
-        schema: SchemaInfo | None = None,
-        tools: ToolsList | None = None,
+        schema: Schema | None = None,
+        tools: list[Tool] | None = None,
         hooks: HooksList | None = None,
         validators: ValidatorsList | None = None,
         saves: Saves | None = None,
@@ -74,8 +74,8 @@ class Interceptor(ABC, InterceptorFn):
         prompts: list[Prompt],
         format_keys: dict,
         tag: Tag,
-        schema: SchemaInfo | None = None,
-        tools: ToolsList | None = None,
+        schema: Schema | None = None,
+        tools: list[Tool] | None = None,
         hooks: HooksList | None = None,
         validators: ValidatorsList | None = None,
         saves: Saves | None = None,
@@ -88,8 +88,8 @@ class Interceptor(ABC, InterceptorFn):
         prompts: list[Prompt],
         format_keys: dict,
         tag: Tag,
-        schema: SchemaInfo | None = None,
-        tools: ToolsList | None = None,
+        schema: Schema | None = None,
+        tools: list[Tool] | None = None,
         hooks: HooksList | None = None,
         validators: ValidatorsList | None = None,
         saves: Saves | None = None,
@@ -120,8 +120,8 @@ class AsyncInterceptor(ABC, AsyncInterceptorFn):
         prompts: list[Prompt],
         format_keys: dict,
         tag: Tag,
-        schema: SchemaInfo | None = None,
-        tools: ToolsList | None = None,
+        schema: Schema | None = None,
+        tools: list[Tool] | None = None,
         hooks: HooksList | None = None,
         validators: ValidatorsList | None = None,
         saves: Saves | None = None,
@@ -134,8 +134,8 @@ class AsyncInterceptor(ABC, AsyncInterceptorFn):
         prompts: list[Prompt],
         format_keys: dict,
         tag: Tag,
-        schema: SchemaInfo | None = None,
-        tools: ToolsList | None = None,
+        schema: Schema | None = None,
+        tools: list[Tool] | None = None,
         hooks: HooksList | None = None,
         validators: ValidatorsList | None = None,
         saves: Saves | None = None,
@@ -167,8 +167,8 @@ def interceptor(func: InterceptorFn | AsyncInterceptorFn, *, name_session: NameS
                     prompts: list[Prompt],
                     format_keys: dict,
                     tag: Tag,
-                    schema: SchemaInfo | None = None,
-                    tools: ToolsList | None = None,
+                    schema: Schema | None = None,
+                    tools: list[Tool] | None = None,
                     hooks: HooksList | None = None,
                     validators: ValidatorsList | None = None,
                     saves: Saves | None = None,
@@ -197,8 +197,8 @@ def interceptor(func: InterceptorFn | AsyncInterceptorFn, *, name_session: NameS
                     prompts: list[Prompt],
                     format_keys: dict,
                     tag: Tag,
-                    schema: SchemaInfo | None = None,
-                    tools: ToolsList | None = None,
+                    schema: Schema | None = None,
+                    tools: list[Tool] | None = None,
                     hooks: HooksList | None = None,
                     validators: ValidatorsList | None = None,
                     saves: Saves | None = None,
