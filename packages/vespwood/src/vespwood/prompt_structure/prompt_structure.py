@@ -93,6 +93,10 @@ class PromptStructure(list[PromptLike]):
 
     @staticmethod
     def __load_iterator__(data: PromptStructureDataUnit) -> PromptStructure:
+        name = data.get("name")
+        description = data.get("description"), 
+        schemas = data.get("schemas"), 
+        tools = data.get("tools")
         iterator = data.get("iterator") or data.get("in")
         iter_key: str = data.get("for") or data.get("iter_key", "it")
         index_key: str = data.get("index_key", "index")
@@ -107,20 +111,38 @@ class PromptStructure(list[PromptLike]):
         if not isinstance(structure, list): structure = [structure]
         params = data.get("params")
         return PromptStructure(
-            PromptStructure.load_from_structure(structure), 
+            PromptStructure.to_prompt_list(structure), 
             iterator=iterator, 
             iter_key=iter_key, 
             index_key=index_key,
             co_iterators=co_iterators, 
             co_iter_keys=co_iter_keys, 
             default_co_iter_values=default_co_iter_values, 
-            initial=PromptStructure.load_from_structure(initial) if initial else None,
-            params=params
+            initial=PromptStructure.to_prompt_list(initial) if initial else None,
+            params=params,
+            name=name, 
+            description=description, 
+            schemas=schemas, 
+            tools=tools
         )
 
+    @staticmethod
+    def to_prompt_list(data: PromptStructureData) -> list[Prompt | PromptStructure]:
+        prompt_list =[]
+        for prompt in data:
+            if any(key in prompt for key in ("iterator", "in", "when", "switch", "if", "while", "structure")):
+                prompt_list.append(PromptStructure.load_from_dict(prompt))
+            else:
+                prompt_list.append(Prompt.load_from_dict(prompt))
+        return prompt_list
+    
 
     @staticmethod
     def __load_case__(data: PromptStructureDataUnit, params: list[str] | None = None) -> PromptStructure:
+        name = data.get("name")
+        description = data.get("description"), 
+        schemas = data.get("schemas"), 
+        tools = data.get("tools")
         matchkey = data.get("match") or data.get("case")
         structure = data["structure"]
         if not isinstance(structure, list): structure = [structure]
@@ -128,27 +150,40 @@ class PromptStructure(list[PromptLike]):
             if params is None: params = {}
             params.extend(p)
         return PromptStructure(
-            PromptStructure.load_from_structure(structure),
+            PromptStructure.to_prompt_list(structure),
             match=matchkey,
-            params=params
+            params=params,
+            name=name,
+            description=description,
+            schemas=schemas,
+            tools=tools
         )
         
 
     @staticmethod
     def __load_switch__(data: PromptStructureDataUnit) -> PromptStructure:
+        name = data.get("name")
+        description = data.get("description"), 
+        schemas = data.get("schemas"), 
+        tools = data.get("tools")
         switch = data.get("switch") or data.get("when")
         params = data.get("params")
         cases = list(map(lambda case: PromptStructure.__load_case__(case, copy.copy(params)), data["cases"]))
         default = data.get("default", [])
         if not isinstance(default, list): default = [default]
         return PromptStructure(
-            PromptStructure.load_from_structure(default), 
-            switch=switch, cases=cases, params=params
+            PromptStructure.to_prompt_list(default), 
+            switch=switch, cases=cases, params=params,
+            name=name, description=description, schemas=schemas, tools=tools
         )
         
 
     @staticmethod
     def __load_if__(data: PromptStructureDataUnit) -> PromptStructure:
+        name = data.get("name")
+        description = data.get("description"), 
+        schemas = data.get("schemas"), 
+        tools = data.get("tools")
         ifkey = data["if"]
         matchkey = data.get("match")
         structure = data.get("else", [])
@@ -158,16 +193,24 @@ class PromptStructure(list[PromptLike]):
         if not isinstance(then, list): then = [then]
         params = data.get("params")
         return PromptStructure(
-            PromptStructure.load_from_structure(structure), 
+            PromptStructure.to_prompt_list(structure), 
             ifkey=ifkey, 
             match=matchkey,
-            then=PromptStructure.load_from_structure(then),
-            params=params
+            then=PromptStructure.to_prompt_list(then),
+            params=params,
+            name=name,
+            description=description,
+            schemas=schemas,
+            tools=tools
         )
 
 
     @staticmethod
     def __load_while__(data: PromptStructureDataUnit) -> PromptStructure:
+        name = data.get("name")
+        description = data.get("description"), 
+        schemas = data.get("schemas"), 
+        tools = data.get("tools")
         whilekey = data["while"]
         matchkey = data.get("match")
         initial = data.get("initial")
@@ -179,12 +222,16 @@ class PromptStructure(list[PromptLike]):
         if not isinstance(structure, list): structure = [structure]
         params = data.get("params")
         return PromptStructure(
-            PromptStructure.load_from_structure(structure),
+            PromptStructure.to_prompt_list(structure),
             whilekey=whilekey,
             index_key=index_key,
             match=matchkey,
-            initial=PromptStructure.load_from_structure(initial) if initial is not None else None,
-            params=params
+            initial=PromptStructure.to_prompt_list(initial) if initial is not None else None,
+            params=params,
+            name=name,
+            description=description,
+            schemas=schemas,
+            tools=tools
         )
 
     @staticmethod
@@ -200,31 +247,13 @@ class PromptStructure(list[PromptLike]):
         else:
             if not "structure" in unit:
                 raise SyntaxError("No valid schema found in the dict to load PromptStructure. It should have either iterator, switch, if, while or structure key defined")
-            self = PromptStructure.load_from_structure(unit["structure"])
+            self = PromptStructure.to_prompt_list(unit["structure"])
         self._name = unit.get("name")
         self._description = unit.get("description")
         self._schemas = unit.get("schemas")
         self._tools = unit.get("tools")
         self._hooks = unit.get("hooks")
         self._validators = unit.get("validators")
-        return self
-
-
-    @staticmethod
-    def load_from_structure(
-        data: PromptStructureData, 
-        *, 
-        name: str | None = None, 
-        description: str | None = None,
-        schemas: list[SchemaInfo] | None = None,
-        tools: ToolsList | None = None
-    ) -> PromptStructure:
-        self = PromptStructure([], name=name, description=description, schemas=schemas, tools=tools)
-        for prompt in data:
-            if any(key in prompt for key in ("iterator", "in", "when", "switch", "if", "while", "structure")):
-                self.append(PromptStructure.load_from_dict(prompt))
-            else:
-                self.append(Prompt.load_from_dict(prompt))
         return self
 
 
@@ -249,11 +278,10 @@ class PromptStructure(list[PromptLike]):
                     structure["name"] = file_name.split(".")[0]
                 return PromptStructure.load_from_dict(structure)
             elif isinstance(structure, list):
-                return PromptStructure.load_from_structure(
-                    structure,
+                return PromptStructure(
+                    PromptStructure.to_prompt_list(structure),
                     name=file_name.split(".")[0]
                 )
-
 
     @property
     def id(self) -> str:

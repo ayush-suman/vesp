@@ -1,27 +1,23 @@
 from typing import Callable, Any, TypeVar, ParamSpec, Generic
-
+from abc import abstractmethod
 from vespwood_generator.schematic import Schematic
+
 
 I = ParamSpec('I')
 O = TypeVar('O')
 
 class Tool(Schematic, Generic[I, O]):
-    __slots__ = "_name", "_description", "_schema", "_function", "_caller",
-
-    def __init__(self, func: Callable[I, O], *, name: str | None = None, description: str | None = None):
-        self._name: str = name or func.__name__
-        self._description: str | None = description or func.__doc__ or self.__doc__
-        self._schema: dict[str, Any] | None = Schematic.to_json_schema(func) if func else None
-        self.__function__: Callable[I, O] = func
+    __slots__ = "_name", "_description", "_schema",
 
 
-    def update_with(self, *, name: str, description: str, schema: dict[str, Any]):
-        if name:
-            self.name = name
-        if description:
-            self.description = description
-        if schema:
-            self.schema = schema
+    def __init__(self, name: str | None = None, description: str | None = None, schema: Schematic | None = None):
+        self._name: str = name or self.__class__.__name__
+        self._description: str | None = description or self.__class__.__doc__
+        self._schema: dict[str, Any] | None = schema.schema or Schematic.to_json_schema(self.__call__)
+
+
+    def copy_with(self, *, name: str | None = None, description: str | None = None, schema: Schematic | None) -> "Tool": 
+        return Tool(name or self.name, description or self.description, schema or self.schema)
         
 
     @property
@@ -39,13 +35,18 @@ class Tool(Schematic, Generic[I, O]):
         return self._schema
     
 
+    @abstractmethod
     def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O:
-        return self.__function__(*args, **kwargs)
+        ...
 
 
-def tool(func: Callable | None = None, *, name: str | None = None, description: str | None = None) -> Tool:
+def tool(func: Callable[I, O] | None = None, *, name: str | None = None, description: str | None = None) -> Tool:
     def wrapper(fn: Callable):
-        return Tool(name=name, description=description, func=fn)
+        class WrapperTool(Tool[I, O]):
+            def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O:
+                return fn(*args, **kwargs)
+            
+        return WrapperTool(name=name, description=description, schema=Schematic.to_json_schema(fn))
         
     if func:
         wrapper.__qualname__ = func.__qualname__

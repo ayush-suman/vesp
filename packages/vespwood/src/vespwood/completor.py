@@ -56,7 +56,7 @@ class Completor:
             self._prompt_structure = PromptStructure.load_from_dict(prompt_structure)
 
         elif isinstance(prompt_structure, list):
-            self._prompt_structure = PromptStructure.load_from_structure(prompt_structure)
+            self._prompt_structure = PromptStructure.to_prompt_list(prompt_structure)
 
         elif isinstance(prompt_structure, PromptStructure):
             self._prompt_structure = prompt_structure
@@ -137,6 +137,10 @@ class Completor:
     @property
     def validators(self) -> list[Validator]:
         return self._validators
+    
+    @property
+    def interceptors(self) -> list[Interceptor]:
+        return self._interceptors
 
 
     def _invoke_hooks(self, hooks: HooksList, response: Response, messages: TaggedMessages, format_keys: dict) -> dict[str, Any]:
@@ -204,12 +208,61 @@ class Completor:
                         else:
                             _tool = self.tools[i]
                     elif isinstance(tool, dict):
-                        i = bisect.bisect_left(self.tools, tool["name"], key=lambda t: t.name)
-                        if i == len(self.tools) or self.tools[i].name != tool["name"]:
-                            _missing_tools.append(tool["name"])
+                        if "structure" in tool:
+                            class PromptTool(Tool):
+                                def __init__(inner_self, name: str, description: str, schema: Schema, structure: PromptStructure, output: dict[str, str], generator: Generator):
+                                    inner_self._completer = Completor(
+                                        generator, 
+                                        prompt_structure=structure, 
+                                        name=name, 
+                                        description=description, 
+                                        schemas=self.schemas, 
+                                        tools=self.tools, 
+                                        hooks=self.hooks, 
+                                        validators=self.validators,
+                                        interceptors=self.interceptors,
+                                        continue_on_max_token=self._continue_on_max_token,
+                                        retry_on_rate_limit=self._retry_on_rate_limit,
+                                        retry_with_delay=self._retry_with_delay
+                                    )
+                                    inner_self._schema = schema.schema
+                                    inner_self._output = output
+
+                                async def __call__(self, **kwargs) -> dict[str, Any]:
+                                    _, format_keys = await self._completer(kwargs)
+                                    output = {}
+                                    for key, value in self._output.items():
+                                        output[value] = format_keys[key]
+                                    return output
+                                
+                            _tool = PromptTool(
+                                tool.get("name"), 
+                                tool.get("description"), 
+                                Schema.from_json_schema(
+                                    name=tool["schema"]["name"],
+                                    description=tool["schema"]["description"],
+                                    json_schema=tool["schema"]["json_schema"],
+                                    schemas=self.schemas
+                                ),
+                                PromptStructure.load_from_dict(tool["structure"]),
+                                tool["output"],
+                                self._generator
+                            )
                         else:
-                            _tool = self.tools[i]
-                        _tool.update_with(description=tool.get("description"), schema=tool.get("schema"))
+                            i = bisect.bisect_left(self.tools, tool["name"], key=lambda t: t.name)
+                            if i == len(self.tools) or self.tools[i].name != tool["name"]:
+                                _missing_tools.append(tool["name"])
+                            else:
+                                _tool = self.tools[i]
+                            
+                            _tool = _tool.copy_with(
+                                description=tool.get("description"), 
+                                schema=Schema.from_json_schema(
+                                    name=tool["schema"]["name"],
+                                    description=tool["schema"]["description"],
+                                    json_schema=tool["schema"]["json_schema"],
+                                    schemas=self.schemas
+                                ) if "schema" in tool else None)
                     _tools.append(_tool)
                 if _missing_tools:
                     raise MissingToolError(_missing_tools)
