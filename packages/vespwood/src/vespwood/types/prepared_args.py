@@ -1,4 +1,3 @@
-from typing import Any, TypeAlias
+from typing import Any
 
-
-PreparedArgs: TypeAlias = dict[str, Any]
+PreparedArgs = dict[str, Any]

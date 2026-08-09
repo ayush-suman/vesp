@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any
 
-from vespwood._utils.get_base_index import get_key_index
+from vespwood._utils.get_key_index import get_key_index
 from vespwood.prompt_mapping import PromptMapping
 from vespwood.types.params import Params
 

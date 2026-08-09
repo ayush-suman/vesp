@@ -3,7 +3,7 @@ import asyncio
 from typing import Any
 from vespwood_generator.schematic import Schema, Tool
 from vespwood_generator.errors import MaxTokenLimitError, RateLimitError, ValidationError
-from vespwood_generator.message import Response, Message
+from vespwood_generator.message import Message
 from vespwood_generator.validator import Validator
 
 
@@ -22,10 +22,10 @@ class Generator(metaclass=GeneratorClass):
         messages: list[Message], 
         schema: Schema | None = None,
         tools: list[Tool] | None = None
-    ) -> Response: ...
+    ) -> Message: ...
 
 
-    async def get_response(self, messages: list[Message], format_keys: dict[str, Any], schema: Schema | None, tools: list[Tool] | None, validators: list[Validator] | None, continue_on_max_token: bool = True, retry_on_rate_limit: bool = True, retry_with_delay: int = 0) -> Response:
+    async def get_response(self, messages: list[Message], format_keys: dict[str, Any], schema: Schema | None, tools: list[Tool] | None, validators: list[Validator] | None, continue_on_max_token: bool = True, retry_on_rate_limit: bool = True, retry_with_delay: int = 0) -> Message:
         response = None
         try:
             response = await self.__prompt__(messages, schema, tools)
@@ -52,7 +52,7 @@ class Generator(metaclass=GeneratorClass):
                 print("Continuing generation...")
                 response = Message(role="assistant", content=e.generated_content)
                 messages.append(response)
-                remaining_response: Response = await self.get_response(
+                remaining_response: Message = await self.get_response(
                     messages=messages,
                     format_keys=format_keys,
                     tools=tools,

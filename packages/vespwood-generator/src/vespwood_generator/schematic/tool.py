@@ -1,4 +1,4 @@
-from typing import Callable, Any, TypeVar, ParamSpec, Generic
+from typing import Callable, Any, TypeVar, ParamSpec, Generic, Awaitable
 from abc import abstractmethod
 from vespwood_generator.schematic import Schematic
 
@@ -34,10 +34,12 @@ class Tool(Schematic, Generic[I, O]):
     def schema(self) -> dict[str, Any]:
         return self._schema
     
-
+    @overload
+    def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O: ...
+    @overload
+    def __call__(self, *args: I.args, **kwargs: I.kwargs) ->Awaitable[O]: ...
     @abstractmethod
-    def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O:
-        ...
+    def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O | Awaitable[O]: ...
 
 
 def tool(func: Callable[I, O] | None = None, *, name: str | None = None, description: str | None = None) -> Tool:

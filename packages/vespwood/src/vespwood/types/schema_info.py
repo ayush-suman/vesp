@@ -1,5 +1,7 @@
 from typing import TypeAlias
 
-SchemaObject: TypeAlias = dict # TODO: Change to TypedDict
+SchemaObject= dict # TODO: Change to TypedDict
 
 SchemaInfo: TypeAlias = SchemaObject | str
+
+SchemaList = list[SchemaInfo]

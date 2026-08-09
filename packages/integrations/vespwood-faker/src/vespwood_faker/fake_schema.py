@@ -1,5 +1,5 @@
 from vespwood_generator import (
-    Message,
+    Prompt,
     Structured,
     Response,
     Generator, 
@@ -10,7 +10,7 @@ from jsf import JSF
 
 
 class FakeResponseGenerator(Generator):
-    async def __prompt__(self, messages: list[Message], schema: Schema | None = None, tools: list[Tool] | None = None) -> Response: 
+    async def __prompt__(self, messages: list[Prompt], schema: Schema | None = None, tools: list[Tool] | None = None) -> Response: 
         if schema:
             jsf = JSF(schema.schema)
             response = jsf.generate()

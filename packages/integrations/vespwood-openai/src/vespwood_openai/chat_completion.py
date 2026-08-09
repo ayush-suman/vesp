@@ -6,7 +6,7 @@ from openai import NOT_GIVEN, AsyncOpenAI, RateLimitError as OpenAIRateLimitErro
 
 from vespwood_generator import (
     message_converter, 
-    Message,
+    Prompt,
     Response,
     Structured,
     ToolCall, 
@@ -21,7 +21,7 @@ from vespwood_generator import (
 
 
 @message_converter
-def _openai_chat_completion_msg_converter(message: Message) -> list[dict[str, Any]]:
+def _openai_chat_completion_msg_converter(message: Prompt) -> list[dict[str, Any]]:
     msgs = []
     
     for block in message.content:
@@ -71,7 +71,7 @@ class OpenAIChatCompletionGenerator(Generator):
         self._model: AsyncOpenAI = AsyncOpenAI(api_key=api_key, timeout=timeout)
         
 
-    async def __prompt__(self, messages: list[Message], schema: Schema | None = None, tools: list[Tool] | None = None) -> Response: 
+    async def __prompt__(self, messages: list[Prompt], schema: Schema | None = None, tools: list[Tool] | None = None) -> Response: 
         prompts = _openai_chat_completion_msg_converter(messages)
 
         response_format = NOT_GIVEN

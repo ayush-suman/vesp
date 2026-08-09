@@ -1,6 +1,6 @@
 
 
-from .tag import Tag
+
 
 from .blocks import (
     Structured,
@@ -11,8 +11,7 @@ from .blocks import (
 )
 
 from .message import (
-    Message,
-    Response
+    Message
 )
 
 from .generator import (
@@ -51,8 +50,6 @@ from .errors import (
 )
 
 __all__ = [
-    "Tag",
-    
     "Structured",
     "Image",
     "File",

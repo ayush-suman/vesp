@@ -24,7 +24,7 @@ class Schematic(ABC):
 
     @property
     @abstractmethod
-    def schema(self) -> dict[str, any]:
+    def schema(self) -> dict[str, Any]:
         """
         Get the parameters of the function as a JSON schema.
 
@@ -112,7 +112,7 @@ class Schematic(ABC):
         
     @staticmethod
     def __class_to_json_schema(cls, fallback):
-        json_schema = {"description": cls.__doc__} if cls.__doc__ else {}
+        json_schema = { "description": cls.__doc__ } if cls.__doc__ else {}
         while (get_origin(cls) or cls) not in (int, float, str, bool, list, dict):
             cls = getattr(cls, "__orig_bases__")[0]
         json_schema.update(Schematic.__type_to_json_schema(cls, fallback))
@@ -121,7 +121,8 @@ class Schematic(ABC):
 
     @staticmethod
     def __any_to_json_schema(func, fallback=None):
-        if inspect.isclass(func) and issubclass(func, (int, float, str, bool, list, dict)): 
+        isclass = inspect.isclass(func)
+        if isclass and issubclass(func, (int, float, str, bool, list, dict)): 
             return Schematic.__class_to_json_schema(func, fallback or Schematic.__any_to_json_schema)
 
         sig = inspect.signature(func)
@@ -129,9 +130,12 @@ class Schematic(ABC):
         
         properties = {}
         required = []
+        params_with_no_default = [name for name, param in sig.parameters.items() if param.default is inspect.Parameter.empty]
+        if diff := set(params_with_no_default) - set(type_hints):
+            raise TypeError(f"Schema cannot be generated for {func.__name__} since {diff} are present in constructor but not annotated in the class")
         
         for name, _ in sig.parameters.items():
-            py_type = type_hints.get(name, str)
+            py_type = type_hints.get(name)
             schema = Schematic.__type_to_json_schema(
                 py_type, 
                 fallback or Schematic.__any_to_json_schema
@@ -200,9 +204,10 @@ class Schematic(ABC):
             py_type = type( 
                 "Object",
                 (), 
-                {"__annotations__": annotations, "__doc__": json_schema.get("description")}
+                { "__annotations__": annotations, "__doc__": json_schema.get("description") }
             )
             py_type = setup_init(py_type)
             return Annotated[py_type, doc] if doc else py_type
         
         return fallback(json_schema)
+

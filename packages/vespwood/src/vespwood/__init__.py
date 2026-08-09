@@ -20,9 +20,9 @@ from .hook import hook, Hook
 from .interceptor import ResponseHandler, interceptor, Interceptor
 from .logic import Logic
 from .match import match
+from .prompt import Prompt
 from .prompt_mapping import PromptMapping
-from .tagged_messages import TaggedMessages
-from .message import Prompt
+from .tag import Tag
 
 from .types import (
     HookObject, HooksList, 
@@ -37,11 +37,10 @@ from .types import (
 from vespwood_generator import (
     Role,
     Block, File, Image, Structured, ToolCall,
-    Message, Response,
+    Message,
     validator, Validator,
     Schematic, schema, Schema, tool, Tool,
-    GeneratorClass, Generator,
-    Tag
+    GeneratorClass, Generator
 )
 
 __all__ = [
@@ -65,11 +64,11 @@ __all__ = [
     "ValidationError",
     
     # Message & Prompt Structure
-    "Message",
     "Prompt",
-    "Response",
+    "Message",
     "PromptStructure",
     "MessageList",
+    "Tag"
 
     # Core
     "Completor",

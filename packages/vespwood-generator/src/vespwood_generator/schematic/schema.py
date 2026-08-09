@@ -1,5 +1,6 @@
 from enum import Enum
-from typing import Any, Callable, dataclass_transform, overload, Generic, TypeVar
+import inspect
+from typing import Any, Callable, dataclass_transform, overload, Generic, TypeVar, get_type_hints
 from vespwood_generator._utils import setup_init
 from vespwood_generator.schematic import Schematic
 
@@ -21,7 +22,6 @@ class Schema(type[T], Schematic, Generic[T]):
     @property
     def schema(cls):
         return cls._schema
-
 
     def __new__(mcs, name, bases=(), ns={}, *, skip_init = False):
         _name = ns.pop("_name", None)
@@ -120,6 +120,60 @@ class Schema(type[T], Schematic, Generic[T]):
     
     def __init__(cls, name, bases=(), ns={}, **kwargs):
         super().__init__(name, bases, ns, **kwargs)
+
+
+    def load(cls, data: dict[str, Any]) -> T:
+        def load_values(type, payload: Any):
+            if tp is Any:
+                return payload
+
+            origin = get_origin(tp)
+            if origin is not None:
+                args = get_args(tp)
+                if origin in (Union, types.UnionType):
+                    opts = [a for a in args if a is not type(None)]
+                    if payload is None:
+                        return None
+                    for a in opts:
+                        try:
+                            return build(a, payload)
+                        except Exception:
+                            pass
+                    raise TypeError(f"no union member of {tp} fits {payload!r}")
+                if origin in (list, set, frozenset):
+                    return origin(build(args[0], v) for v in payload)
+                if origin is tuple:
+                    if len(args) == 2 and args[1] is Ellipsis:
+                        return tuple(build(args[0], v) for v in payload)
+                    return tuple(build(a, v) for a, v in zip(args, payload))
+                if origin is dict:
+                    kt, vt = args
+                    return {build(kt, k): build(vt, v) for k, v in payload.items()}
+                tp = origin          
+
+            if inspect.isclass(tp):
+                if tp is type(None):
+                    return None
+                if issubclass(tp, enum.Enum):
+                    return tp(payload)
+                if tp in (dt.datetime, dt.date, dt.time):
+                    return tp.fromisoformat(payload)
+                if tp in (int, float, str, bool):
+                    if not isinstance(payload, tp):
+                        raise TypeError(f"expected {tp.__name__}, got {payload!r}")
+                    return payload
+                
+            signature = inspect.signature(type)
+            type_hints = get_type_hints(type, include_extras=True)
+
+            args = {}
+            for name, _ in signature.parameters.items():
+                py_type = type_hints.get(name, str)
+                args[name] = load_values(py_type, payload[name])
+
+            return type(**args)
+        
+        return load_values(cls, data)
 
 
 S = TypeVar("S")    

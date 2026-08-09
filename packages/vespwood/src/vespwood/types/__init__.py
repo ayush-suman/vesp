@@ -3,7 +3,7 @@ from .hooks_list import HookObject, HooksList
 from .params import Params
 from .prepared_args import PreparedArgs
 from .saves import Saves
-from .schema_info import SchemaObject, SchemaInfo
+from .schema_info import SchemaObject, SchemaInfo, SchemaList
 from .tools_list import ToolObject, ToolsList
 from .validators_list import ValidatorsList
 
@@ -12,7 +12,7 @@ __all__ = [
     "Params",
     "PreparedArgs",
     "Saves",
-    "SchemaObject", "SchemaInfo",
+    "SchemaObject", "SchemaList",
     "ToolObject", "ToolsList",
     "ValidatorsList"
 ]

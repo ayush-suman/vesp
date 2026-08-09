@@ -2,14 +2,14 @@ from __future__ import annotations
 import copy
 import uuid
 
-from typing import Any, TypeAlias
-
+from typing import Any, overload
+from dataclasses import dataclass
 from ._format_object import FormatInt, FormatList, FormatKeys, to_format_object
 from vespwood_generator import Tag, Message
 
 from vespwood.types import (
     Params,
-    SchemaInfo, 
+    SchemaList, 
     ToolsList, 
     HooksList, 
     ValidatorsList, 
@@ -19,66 +19,166 @@ from vespwood.parse_expr import parse_exprs, parse_dict
 from vespwood.match import match
 from vespwood.expression import Expression
 from vespwood.logic import Logic
-from vespwood.message import Prompt
+from vespwood.prompt import Prompt
 
 
 
-PromptStructureDataUnit: TypeAlias = "dict[str, PromptStructureData | str]"
-PromptStructureData: TypeAlias = "list[PromptStructureDataUnit | str]"
-
-PromptLike: TypeAlias = "Prompt | PromptStructure"
+PromptStructureDataUnit = dict["str, PromptStructureData | str"]
+PromptStructureData = list["PromptStructureDataUnit | str"]
 
 
-class PromptStructure(list[PromptLike]):
-    def __init__(self, 
-                prompt_list: list[Prompt | PromptStructure], 
-                *,
-                id: str | None = None,
-                name: str | None = None,
-                description: str | None = None,
-                schemas: list[SchemaInfo] | None = None,
-                tools: ToolsList | None = None,
-                hooks: HooksList | None = None,
-                validators: ValidatorsList | None = None,
-                iterator: str | None = None, 
-                iter_key: str | None = None,
-                index_key: str | None = None,
-                co_iterators: list[str] | None = None, 
-                co_iter_keys: list[str | None] | None = None,
-                default_co_iter_values: list[Any] | None = None,
-                initial: PromptStructure | None = None,
-                whilekey: str | None = None,
-                ifkey: str | None = None,
-                match: str | int | bool | dict | Logic | Expression | None = None,
-                then: PromptStructure | None = None,
-                switch: str | None = None, 
-                cases: list[PromptStructure] | None = None,
-                params: Params | None = None):
-        self.extend(prompt_list)
-        self._id = id or uuid.uuid4().hex
+class PromptStructure:
+    @overload
+    def __init__(
+        self,
+        id: str,
+        *,
+        prompt_list: list[Prompt | PromptStructure | str],
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        
+    ): ...
+    @overload
+    def __init__(
+        self,
+        id: str,
+        *,
+        iterator: str, 
+        prompt_list: list[Prompt | PromptStructure | str],
+        initial: list[Prompt | PromptStructure | str] | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        iter_key: str | None = None,
+        index_key: str | None = None,
+        params: Params | None = None
+    ): ...
+    @overload
+    def __init__(
+        self,
+        id: str,
+        *,
+        while_key: str,
+        prompt_list: list[Prompt | PromptStructure | str],
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        initial: list[Prompt | PromptStructure | str] | None = None,
+        match: str | int | bool | dict | Logic | Expression | None = None,
+        index_key: str | None = None,
+        params: Params | None = None
+    ): ...
+    @overload
+    def __init__(
+        self,
+        id: str,
+        *,
+        if_key: str,
+        prompt_list: list[Prompt | PromptStructure | str],
+        else_list: list[Prompt | PromptStructure | str],
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        match: str | int | bool | dict | Logic | Expression | None = None,
+        params: Params | None = None
+    ): ...
+    @overload
+    def __init__(
+        self,
+        id: str,
+        *,
+        cases: list[PromptStructure | str],
+        prompt_list: list[Prompt | PromptStructure | str],
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        switch: str | None = None, 
+        params: Params | None = None
+    ): ...
+    @overload
+    def __init__(
+        self,
+        id: str,
+        *,
+        match: str | int | bool | dict | Logic | Expression | None,
+        prompt_list: list[Prompt | PromptStructure | str],
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        params: Params | None = None
+    ): ...
+    def __init__(
+        self,
+        id: str,
+        *,
+        prompt_list: list[Prompt | PromptStructure | str],
+        iterator: str | None = None,
+        while_key: str | None = None,
+        if_key: str | None = None,
+        cases: list[PromptStructure | str] | None = None,
+        match: str | int | bool | dict | Logic | Expression | None = None,
+        else_list: list[Prompt | PromptStructure | str] | None = None,
+        initial: list[Prompt | PromptStructure | str] | None = None,
+        iter_key: str | None = None,
+        index_key: str | None = None,
+        switch: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        params: Params | None = None
+        
+    ):
+        self._prompt_list = prompt_list
+        self._id = id
         self._name = name
         self._description = description
         self._schemas = schemas
         self._tools = tools
         self._hooks = hooks
         self._validators = validators
+
         self._iterator = iterator
         self._iter_key = iter_key
         self._index_key = index_key
-        self._co_iterators = co_iterators
-        self._co_iter_keys = co_iter_keys
-        self._default_co_iter_values = default_co_iter_values
+        
+        self._while = while_key
+
         self._initial = initial
-        self._while = whilekey
-        self._if = ifkey
+        
+        self._if = if_key
+        self._else = else_list
+
         if isinstance(match, str):
             match = parse_exprs(match)
         elif isinstance(match, dict):
             match = parse_dict(match)
         self._match: str | int | bool | Logic | Expression = match
-        self._then = then
+        
         self._switch = switch
         self._cases = cases
+
         self._params = params
 
 
@@ -92,43 +192,8 @@ class PromptStructure(list[PromptLike]):
     
 
     @staticmethod
-    def __load_iterator__(data: PromptStructureDataUnit) -> PromptStructure:
-        name = data.get("name")
-        description = data.get("description"), 
-        schemas = data.get("schemas"), 
-        tools = data.get("tools")
-        iterator = data.get("iterator") or data.get("in")
-        iter_key: str = data.get("for") or data.get("iter_key", "it")
-        index_key: str = data.get("index_key", "index")
-        co_iterators: list[str] | None = data.get("co_iterators")
-        co_iter_keys: list[str] | None = data.get("co_iter_keys", 
-                                                              [f"co_iter_{idx}_value" for idx in range(len(co_iterators))] 
-                                                              if co_iterators else None)
-        default_co_iter_values: list[str | None] | None = data.get("default_co_iter_values")
-        initial = data.get("initial")
-        if initial is not None and not isinstance(initial, list): initial = [initial]
-        structure = data["structure"]
-        if not isinstance(structure, list): structure = [structure]
-        params = data.get("params")
-        return PromptStructure(
-            PromptStructure.to_prompt_list(structure), 
-            iterator=iterator, 
-            iter_key=iter_key, 
-            index_key=index_key,
-            co_iterators=co_iterators, 
-            co_iter_keys=co_iter_keys, 
-            default_co_iter_values=default_co_iter_values, 
-            initial=PromptStructure.to_prompt_list(initial) if initial else None,
-            params=params,
-            name=name, 
-            description=description, 
-            schemas=schemas, 
-            tools=tools
-        )
-
-    @staticmethod
     def to_prompt_list(data: PromptStructureData) -> list[Prompt | PromptStructure]:
-        prompt_list =[]
+        prompt_list = []
         for prompt in data:
             if any(key in prompt for key in ("iterator", "in", "when", "switch", "if", "while", "structure")):
                 prompt_list.append(PromptStructure.load_from_dict(prompt))
@@ -138,112 +203,162 @@ class PromptStructure(list[PromptLike]):
     
 
     @staticmethod
-    def __load_case__(data: PromptStructureDataUnit, params: list[str] | None = None) -> PromptStructure:
+    def _load_iterator(data: PromptStructureDataUnit) -> PromptStructure:
+        name = data.get("name")
+        description = data.get("description"), 
+        schemas = data.get("schemas"), 
+        tools = data.get("tools")
+        iterator = data.get("iterator") or data.get("in")
+        iter_key: str = data.get("for") or data.get("iter_key", "it")
+        index_key: str = data.get("index_key", "index")
+
+        initial = data.get("initial")
+        if initial and not isinstance(initial, list): initial = [initial]
+
+        structure = data["structure"]
+        if not isinstance(structure, list): structure = [structure]
+
+        params = data.get("params")
+
+        return PromptStructure(
+            uuid.uuid4().hex,
+            iterator=iterator, 
+            prompt_list=PromptStructure.to_prompt_list(structure), 
+            initial=PromptStructure.to_prompt_list(initial) if initial else None,
+            name=name, 
+            description=description, 
+            schemas=schemas, 
+            tools=tools,
+            iter_key=iter_key, 
+            index_key=index_key,
+            params=params
+        )
+
+
+    @staticmethod
+    def _load_case(data: PromptStructureDataUnit) -> PromptStructure:
         name = data.get("name")
         description = data.get("description"), 
         schemas = data.get("schemas"), 
         tools = data.get("tools")
         matchkey = data.get("match") or data.get("case")
+
         structure = data["structure"]
         if not isinstance(structure, list): structure = [structure]
-        if p := data.get("params"):
-            if params is None: params = {}
-            params.extend(p)
+
+        params = data.get("params")
+
         return PromptStructure(
-            PromptStructure.to_prompt_list(structure),
+            uuid.uuid4().hex,
             match=matchkey,
-            params=params,
+            prompt_list=PromptStructure.to_prompt_list(structure),
             name=name,
             description=description,
             schemas=schemas,
-            tools=tools
+            tools=tools,
+            params=params
         )
         
 
     @staticmethod
-    def __load_switch__(data: PromptStructureDataUnit) -> PromptStructure:
+    def _load_switch(data: PromptStructureDataUnit) -> PromptStructure:
         name = data.get("name")
         description = data.get("description"), 
         schemas = data.get("schemas"), 
         tools = data.get("tools")
         switch = data.get("switch") or data.get("when")
         params = data.get("params")
-        cases = list(map(lambda case: PromptStructure.__load_case__(case, copy.copy(params)), data["cases"]))
+        cases = data["cases"]
+
         default = data.get("default", [])
         if not isinstance(default, list): default = [default]
+
         return PromptStructure(
-            PromptStructure.to_prompt_list(default), 
-            switch=switch, cases=cases, params=params,
-            name=name, description=description, schemas=schemas, tools=tools
+            uuid.uuid4().hex,
+            switch=switch, 
+            prompt_list=PromptStructure.to_prompt_list(default), 
+            cases=list(map(lambda case: PromptStructure._load_case(case), cases)), 
+            name=name, 
+            description=description, 
+            schemas=schemas, 
+            tools=tools,
+            params=params
         )
         
 
     @staticmethod
-    def __load_if__(data: PromptStructureDataUnit) -> PromptStructure:
+    def _load_if(data: PromptStructureDataUnit) -> PromptStructure:
         name = data.get("name")
         description = data.get("description"), 
         schemas = data.get("schemas"), 
         tools = data.get("tools")
         ifkey = data["if"]
         matchkey = data.get("match")
-        structure = data.get("else", [])
-        if not isinstance(structure, list):
-            structure = [structure]
+
+        else_list = data.get("else", [])
+        if not isinstance(else_list, list): else_list = [else_list]
+
         then = data.get("then") or data.get("structure")
         if not isinstance(then, list): then = [then]
+
         params = data.get("params")
+
         return PromptStructure(
-            PromptStructure.to_prompt_list(structure), 
+            uuid.uuid4().hex,
             ifkey=ifkey, 
+            structure=PromptStructure.to_prompt_list(then),
+            else_list=PromptStructure.to_prompt_list(else_list), 
             match=matchkey,
-            then=PromptStructure.to_prompt_list(then),
-            params=params,
             name=name,
             description=description,
             schemas=schemas,
-            tools=tools
+            tools=tools,
+            params=params,
         )
 
 
     @staticmethod
-    def __load_while__(data: PromptStructureDataUnit) -> PromptStructure:
+    def _load_while(data: PromptStructureDataUnit) -> PromptStructure:
         name = data.get("name")
         description = data.get("description"), 
         schemas = data.get("schemas"), 
         tools = data.get("tools")
         whilekey = data["while"]
         matchkey = data.get("match")
-        initial = data.get("initial")
         index_key: str = data.get("index_key", "index")
-        if initial:
-            if not isinstance(initial, list):
-                initial = [initial]
-        structure = data["structure"]
+
+        initial = data.get("initial")
+        if initial and not isinstance(initial, list): initial = [initial]
+
+        structure = data.get("then") or data["structure"]
         if not isinstance(structure, list): structure = [structure]
+
         params = data.get("params")
+
         return PromptStructure(
-            PromptStructure.to_prompt_list(structure),
+            uuid.uuid4().hex,
             whilekey=whilekey,
+            prompt_list=PromptStructure.to_prompt_list(structure),
+            initial=PromptStructure.to_prompt_list(initial) if initial is not None else None,
             index_key=index_key,
             match=matchkey,
-            initial=PromptStructure.to_prompt_list(initial) if initial is not None else None,
-            params=params,
             name=name,
             description=description,
             schemas=schemas,
-            tools=tools
+            tools=tools,
+            params=params,
         )
 
     @staticmethod
     def load_from_dict(unit: PromptStructureDataUnit) -> PromptStructure:
         if unit.get("iterator") or unit.get("in"):
-            self = PromptStructure.__load_iterator__(unit)
+            self = PromptStructure._load_iterator(unit)
         elif unit.get("when") or unit.get("switch"):
-            self = PromptStructure.__load_switch__(unit)
+            self = PromptStructure._load_switch(unit)
         elif unit.get("if"):
-            self = PromptStructure.__load_if__(unit)
+            self = PromptStructure._load_if(unit)
         elif unit.get("while"):
-            self = PromptStructure.__load_while__(unit)
+            self = PromptStructure._load_while(unit)
         else:
             if not "structure" in unit:
                 raise SyntaxError("No valid schema found in the dict to load PromptStructure. It should have either iterator, switch, if, while or structure key defined")
@@ -299,9 +414,13 @@ class PromptStructure(list[PromptLike]):
     
     
     @property
-    def schemas(self) -> list[SchemaInfo] | None:
+    def schemas(self) -> SchemaList | None:
         return self._schemas
-    
+
+
+    @property
+    def prompt_list(self) -> list[Prompt | PromptStructure]:
+        return self._prompt_list
     
     @property
     def tools(self) -> ToolsList | None:
@@ -339,43 +458,23 @@ class PromptStructure(list[PromptLike]):
 
 
     @property
-    def co_iterators(self):
-        return self._co_iterators
-
-
-    @property
-    def co_iter_keys(self):
-        return self._co_iter_keys
-
-
-    @property
-    def default_co_iter_values(self):
-        return self._default_co_iter_values
-
-
-    @property
     def initial(self):
         return self._initial
 
 
     @property
-    def whilekey(self):
+    def while_key(self):
         return self._while
 
 
     @property
-    def ifkey(self):
+    def if_key(self):
         return self._if
 
 
     @property
-    def matchkey(self):
+    def match_key(self):
         return self._match
-
-
-    @property
-    def then(self):
-        return self._then
 
 
     @property
@@ -415,15 +514,12 @@ class PromptStructure(list[PromptLike]):
 
     @property
     def normalized(self) -> PromptStructure:
-        return PromptStructure(list(self))
+        return PromptStructure(prompt_list=list(self))
 
 
     def copy(self) -> PromptStructure:
-        new_co_iterators = self._co_iterators.copy() if self._co_iterators else None
-        new_co_iter_keys = self._co_iter_keys.copy() if self._co_iter_keys else None
-        new_default_co_iter_values = self._default_co_iter_values.copy() if self._default_co_iter_values else None
         new_initial = self._initial.copy() if self.has_initial else None
-        new_then = self._then.copy() if self._then else None
+        new_else = self._else.copy() if self._else else None
         new_case = [] if self.is_switch else None
         new_params = self._params.copy() if self._params else None
 
@@ -432,8 +528,8 @@ class PromptStructure(list[PromptLike]):
                 new_case.append(prompt_structure.copy())
         
         return PromptStructure(
-            [p.copy() for p in self],
-            id=self._id, 
+            self._id,
+            prompt_list=[p.copy() for p in self],
             name=self._name,
             description=self._description,
             schemas=self._schemas.copy() if self._schemas else None,
@@ -443,14 +539,11 @@ class PromptStructure(list[PromptLike]):
             iterator=copy.copy(self._iterator),
             iter_key=copy.copy(self._iter_key), 
             index_key=copy.copy(self._index_key),
-            co_iterators=new_co_iterators,
-            co_iter_keys=new_co_iter_keys,
-            default_co_iter_values=new_default_co_iter_values,
             initial=new_initial,
-            whilekey=copy.copy(self._while),
-            ifkey=copy.copy(self._if),
+            while_key=copy.copy(self._while),
+            if_key=copy.copy(self._if),
             match=copy.copy(self._match),
-            then=new_then,
+            else_list=new_else,
             switch=copy.copy(self._switch), 
             cases=new_case,
             params=new_params
@@ -461,6 +554,123 @@ class PromptStructure(list[PromptLike]):
         return self.copy()
     
     
+    def indexed(self, idx: int) -> "PromptStructure":
+        new_self = self.copy()
+        new_self.prompt_list.clear()
+
+        for prompt in self.prompt_list:
+            if isinstance(prompt, PromptStructure):
+                new_self.prompt_list.append(prompt.indexed(idx))
+            else:
+                prompt = prompt.indexed(idx)
+                new_self.prompt_list.append(prompt.copy())
+        return new_self
+
+        
+    # TODO: Change FormatKeys to CompletedArgs (alias of dict[str, Any])
+    def get_usables(self, format_keys: FormatKeys, /, message_id_map: dict[str, Prompt] = {}) -> tuple[list[Message], FormatKeys, Prompt | None]:
+        prompt_structure = self.copy()
+        msgs: list[Message] = []
+
+        def get_from_format_key(key: str):
+            f = format_keys
+            key_parts = key.split(".")
+            for part in key_parts:
+                f = f[part]
+            return f
+
+        # Iterator
+        if prompt_structure.is_iterator:
+            if prompt_structure._params:
+                mapping = format_keys.get_params(prompt_structure._params)
+                prompt_structure._iterator = prompt_structure._iterator.format_map(mapping)
+           
+            iterator: FormatList = get_from_format_key(prompt_structure._iterator)
+            iter_key = prompt_structure._iter_key
+            index_key = prompt_structure._index_key
+            for index, value in enumerate(iterator):
+                structure = None
+                if prompt_structure.has_initial and index == 0:
+                    structure = prompt_structure._initial
+                else:
+                    structure = prompt_structure.normalized
+                indexed_structure = structure.indexed(index)
+                extra_keys = { iter_key : value, index_key: FormatInt(index) }
+                format_keys = format_keys.copy_with(extra_keys)
+                prompts, format_keys, awaited_prompt = indexed_structure.get_usables(format_keys, message_id_map=message_id_map)
+                msgs.extend(prompts)
+                if awaited_prompt: return msgs, format_keys, awaited_prompt
+            return msgs, format_keys, None
+
+        # Switch
+        elif prompt_structure.is_switch:
+            if prompt_structure._params:
+                mapping = format_keys.get_params(prompt_structure._params)
+                prompt_structure._switch = prompt_structure._switch.format_map(mapping)
+            case_data = get_from_format_key(prompt_structure._switch)
+            for case in prompt_structure._cases:
+                if case.match(case_data, format_keys):
+                    return case.get_usables(format_keys, message_id_map=message_id_map)
+            normalised_structure = prompt_structure.normalized
+            return normalised_structure.get_usables(format_keys, message_id_map=message_id_map)
+            
+        # If
+        elif prompt_structure.is_if:
+            if prompt_structure._params:
+                mapping = format_keys.get_params(prompt_structure._params)
+                prompt_structure._if = prompt_structure._if.format_map(mapping)
+            case_data = get_from_format_key(prompt_structure._if)
+            if prompt_structure.match(case_data, format_keys):
+                return prompt_structure._then.get_usables(format_keys, message_id_map=message_id_map)
+            normalised_structure = prompt_structure.normalized
+            return normalised_structure.get_usables(format_keys, message_id_map=message_id_map)
+        
+        # While
+        elif prompt_structure.is_while:
+            if prompt_structure._params:
+                mapping = format_keys.get_params(prompt_structure._params)
+                prompt_structure._while = prompt_structure._while.format_map(mapping)
+            case_data = get_from_format_key(prompt_structure._while)
+            index_key = prompt_structure._index_key
+            index = 0
+            while prompt_structure.match(case_data.extras.get(f"{self._id}#{index}") or case_data.normalized, format_keys):
+                structure = None
+                if prompt_structure.has_initial and index == 0:
+                    structure = prompt_structure._initial
+                else:
+                    structure = prompt_structure.normalized
+                indexed_structure = structure.indexed(index)
+                extra_keys = { index_key: FormatInt(index) }
+                format_keys = format_keys.copy_with(extra_keys)
+                prompts, format_keys, awaited_prompt = indexed_structure.get_usables(format_keys, message_id_map=message_id_map)
+                msgs.extend(prompts)
+
+                if not f"{self._id}#{index}" in case_data.extras:
+                    case_data.extras[f"{self._id}#{index}"] = case_data.normalized
+                
+                if awaited_prompt: return msgs, format_keys, awaited_prompt
+                index += 1
+            return msgs, format_keys, None
+
+        # Normal
+        for prompt in prompt_structure.prompt_list:
+            if isinstance(prompt, PromptStructure):
+                prompts, format_keys, awaited_prompt = prompt.get_usables(format_keys, message_id_map=message_id_map)
+                msgs.extend(prompts)
+                if awaited_prompt: return msgs, format_keys, awaited_prompt
+            else:
+                if prompt.params:
+                    mapping = format_keys.get_params(prompt._params)
+                    prompt = prompt.format_map(mapping)
+                if prompt.id in message_id_map:
+                    message = message_id_map[prompt.id]
+                    prompt.update_content(message)
+                if prompt.is_awaited:
+                    return msgs, format_keys, prompt
+                msgs.append(prompt)
+
+        return msgs, format_keys, None
+
     @property
     def json(self) -> dict:
         data = {}
@@ -487,139 +697,3 @@ class PromptStructure(list[PromptLike]):
         data = self.json
         import json
         return json.dumps(data, indent=2)
-    
-    
-    def indexed(self, idx: int) -> "PromptStructure":
-        new_self = self.copy()
-        new_self.clear()
-
-        new_self._then = new_self._then.indexed(idx) if new_self._then else new_self._then
-        new_self._cases = list(map(lambda case: case.indexed(idx), new_self._cases)) if new_self._cases else new_self._cases
-        new_self._initial = new_self._initial.indexed(idx) if new_self._initial else new_self._initial
-
-        for prompt in self:
-            if isinstance(prompt, PromptStructure):
-                new_self.append(prompt.indexed(idx))
-            else:
-                if prompt.is_tagged:
-                    prompt @= prompt.tag.indexed(idx)
-                    new_self.append(prompt.copy())
-                else:
-                    new_self.append(prompt.copy())
-        return new_self
-        
-    # TODO: Change FormatKeys to CompletedArgs (alias of dict[str, Any])
-    def get_usables(self, format_keys: FormatKeys, /, tagged_messages: dict[str, Message] = {}) -> tuple[list[Prompt], FormatKeys, Tag | None, SchemaInfo | None, ToolsList | None, HooksList | None, ValidatorsList | None, Saves | None]:
-        prompt_structure = self.copy()
-        msgs: list[Prompt] = []
-        allNone = ([None] * 6)
-
-        def get_from_format_key(key: str):
-            f = format_keys
-            key_parts = key.split(".")
-            for part in key_parts:
-                f = f[part]
-            return f
-
-        # Iterator
-        if prompt_structure.is_iterator:
-            if prompt_structure._params:
-                mapping = format_keys.get_params(prompt_structure._params)
-                prompt_structure._iterator = prompt_structure._iterator.format_map(mapping)
-                prompt_structure._co_iterators = [co_iter.format_map(mapping) for co_iter in (prompt_structure._co_iterators or [])]
-           
-            iterator: FormatList = get_from_format_key(prompt_structure._iterator)
-            iter_key = prompt_structure._iter_key
-            index_key = prompt_structure._index_key
-            co_iterators: list[FormatList] = [get_from_format_key(co_iter) for co_iter in (prompt_structure._co_iterators or [])]
-            co_iter_keys = prompt_structure._co_iter_keys
-            default_co_iter_values = prompt_structure._default_co_iter_values
-            for index, value in enumerate(iterator):
-                structure = None
-                if prompt_structure.has_initial and index == 0:
-                    structure = prompt_structure._initial
-                else:
-                    structure = prompt_structure.normalized
-                indexed_structure = structure.indexed(index)
-                extra_keys = { iter_key : value, index_key: FormatInt(index) }
-                for idx, co_iterator in enumerate(co_iterators):
-                    if len(co_iterator) <= index or co_iterator[index] is None:
-                        extra_keys[co_iter_keys[idx]] = to_format_object(default_co_iter_values[idx]) if default_co_iter_values else None
-                    else:
-                        extra_keys[co_iter_keys[idx]] = co_iterator[index]
-                format_keys = format_keys.copy_with(extra_keys)
-                prompts, format_keys, tag, *rest = indexed_structure.get_usables(format_keys, tagged_messages=tagged_messages)
-                msgs.extend(prompts)
-                if tag: return msgs, format_keys, tag, *rest
-            return msgs, format_keys, *allNone
-        
-        # Switch
-        elif prompt_structure.is_switch:
-            if prompt_structure._params:
-                mapping = format_keys.get_params(prompt_structure._params)
-                prompt_structure._switch = prompt_structure._switch.format_map(mapping)
-            case_data = get_from_format_key(prompt_structure._switch)
-            for case in prompt_structure._cases:
-                if case.match(case_data, format_keys):
-                    return case.get_usables(format_keys, tagged_messages=tagged_messages)
-            normalised_structure = prompt_structure.normalized
-            return normalised_structure.get_usables(format_keys, tagged_messages=tagged_messages)
-            
-        # If
-        elif prompt_structure.is_if:
-            if prompt_structure._params:
-                mapping = format_keys.get_params(prompt_structure._params)
-                prompt_structure._if = prompt_structure._if.format_map(mapping)
-            case_data = get_from_format_key(prompt_structure._if)
-            if prompt_structure.match(case_data, format_keys):
-                return prompt_structure._then.get_usables(format_keys, tagged_messages=tagged_messages)
-            normalised_structure = prompt_structure.normalized
-            return normalised_structure.get_usables(format_keys, tagged_messages=tagged_messages)
-        
-        # While
-        elif prompt_structure.is_while:
-            if prompt_structure._params:
-                mapping = format_keys.get_params(prompt_structure._params)
-                prompt_structure._while = prompt_structure._while.format_map(mapping)
-            case_data = get_from_format_key(prompt_structure._while)
-            index_key = prompt_structure._index_key
-            index = 0
-            while prompt_structure.match(case_data.extras.get(f"{self._id}#{index}") or case_data.normalized, format_keys):
-                structure = None
-                if prompt_structure.has_initial and index == 0:
-                    structure = prompt_structure._initial
-                else:
-                    structure = prompt_structure.normalized
-                indexed_structure = structure.indexed(index)
-                extra_keys = { index_key: FormatInt(index) }
-                format_keys = format_keys.copy_with(extra_keys)
-                prompts, format_keys, tag, *rest = indexed_structure.get_usables(format_keys, tagged_messages=tagged_messages)
-                msgs.extend(prompts)
-
-                if not f"{self._id}#{index}" in case_data.extras:
-                    case_data.extras[f"{self._id}#{index}"] = case_data.normalized
-                
-                if tag: return msgs, format_keys, tag, *rest
-                index += 1
-            return msgs, format_keys, *allNone
-
-        # Normal
-        for prompt in prompt_structure:
-            if isinstance(prompt, PromptStructure):
-                prompts, format_keys, tag, *rest = prompt.get_usables(format_keys, tagged_messages=tagged_messages)
-                msgs.extend(prompts)
-                if tag: return msgs, format_keys, tag, *rest
-            else:
-                if prompt.params:
-                    mapping = format_keys.get_params(prompt._params)
-                    prompt = prompt.format_map(mapping)
-                if prompt.is_tagged:
-                    tag = prompt.tag
-                    if tag in tagged_messages:
-                        message = tagged_messages[tag]
-                        prompt.update_message(message)
-                    if prompt.response_awaited:
-                        return msgs, format_keys, tag, prompt.schema, prompt.tools, prompt.hooks, prompt.validators, prompt.saves    
-                msgs.append(prompt)
-
-        return msgs, format_keys, *allNone

@@ -1,51 +1,37 @@
 
 from typing import Any
-
+from enum import Enum
+import uuid
 from vespwood_generator import (
     Message,
     File, Image, ToolCall,
-    Tag, Role
+    Tag, Role,
+    Block
 )
 
 from vespwood.types import (
     Params, HooksList, SchemaInfo, ToolsList, ValidatorsList, Saves
 )
 
+class AwaitedType(Enum):
+    REQUIRE_TOOL_RESULT = 1
+    REQUIRE_CONTENT = 2
+
 class Prompt(Message):
-    __slots__ = "_params", "_schema", "_tools", "_hooks", "_validators", "_saves", "_json", "_tag"
-
-    @property
-    def is_tagged(self) -> bool:
-        return self._tag
-    
-
-    @property
-    def tag(self) -> Tag:
-        return self._tag
-
-
-    def __matmul__(self, other: str) -> "Prompt":
-        prompt = self.copy()
-        prompt._tag = Tag(other)
-        return prompt
-
-
-    @classmethod
-    def AWAITING_RESPONSE(cls):
-        self = super().__new__(cls)
-        self.__init__("assistant")
-        return self
-    
+    __slots__ = "_tag", "_params", "_schema", "_tools", "_hooks", "_validators", "_saves", "_json"
 
     def __init__(self, 
+                id: str,
+                *,
                 role: Role, 
-                content: list[str | dict[str, Any] | ToolCall | Image | File] | None = None, 
+                content: Block | list[Block] | None = None, 
                 params: Params | None = None, 
                 schema: SchemaInfo | None = None, 
                 tools: ToolsList | None = None,
                 hooks: HooksList | None = None,
                 validators: ValidatorsList | None = None,
                 saves: Saves | None = None):
+        self._id: str = id
         self._params: Params | None = params
         self._schema: SchemaInfo | None = schema
         self._tools: ToolsList | None = tools
@@ -93,32 +79,47 @@ class Prompt(Message):
         validators = data.get("validators")
         saves = data.get("saves")
         prompt = cls(
+            uuid.uuid4().hex,
+            role=role,
             content=content, 
-            role=role, 
             params=params, 
             schema=schema, 
             tools=tools, 
             hooks=hooks, 
             validators=validators, 
             saves=saves
-        ) 
+        ) @ data.get("tag")
 
-        tag = data.get("tag")
-        if role == "assistant" and tag is None:
-            raise ValueError("Assistant prompts should have tag fields")
-        if tag:
-            prompt @= tag
         return prompt
-    
+
+    @property
+    def is_tagged(self) -> bool:
+        return self._tag
     
     @property
-    def response_awaited(self) -> bool:
-        null_response = self._role == "assistant" and (not self._content  or len(self._content) == 0)
-        return null_response
+    def tag(self) -> Tag:
+        return self._tag
+
+    def __matmul__(self, other: str | Tag | None) -> "Message":
+        if other is None:
+            return self
+        if self.is_tagged:
+            raise ValueError("This response is already tagged with", self._tag, "as tag")
+        self._tag = Tag(other) if isinstance(other, str) else other
+        return self
+    
+    @property
+    def is_awaited(self) -> bool:
+        if self._content is None or len(self._content) == 0:
+            return True
+        if any([(isinstance(block, ToolCall) and block.result is None) for block in self._content]):
+            return True
+        return False
     
 
     def copy(self):
         prompt = Prompt(
+            self._id,
             role=self._role, 
             content=self._content.copy() if self._content else None, 
             params=self._params.copy() if self._params else None,
@@ -126,7 +127,8 @@ class Prompt(Message):
             tools=self._tools.copy() if self._tools else None,
             hooks=self._hooks.copy() if self._hooks else None,
             validators=self._validators.copy() if self._validators else None,
-            saves=self._saves.copy() if self._saves else None)
+            saves=self._saves.copy() if self._saves else None
+        )
         if self.is_tagged: 
             prompt @= self.tag
         return prompt
@@ -161,10 +163,9 @@ class Prompt(Message):
         return prompt
 
 
-    def update_message(self, message: Message):
-        if self.role != message.role:
-            raise ValueError("Cannot add messsage with different role to prompt")
-        self._content = message._content
+    @property
+    def id(self):
+        return self._id
 
     @property
     def params(self):
@@ -190,17 +191,16 @@ class Prompt(Message):
     def saves(self):
         return self._saves
 
-    
+    @property
+    def saved_args(self) -> dict[str, Any]:
+        if self._saves and self._schema and self._content:
+            return { to: self.get(key) for key, to in self._saves.items() }
+        return {}
 
-    def __str__(self) -> str:
-        data = self.json
-        import json
-        return json.dumps(data, indent=2)
-
-
-    def __repr__(self) -> str:
-        data = { "role": self._role, "content": list(map(lambda block: block.json if isinstance(block, ToolCall) else block, self.content)) }
-        if self.is_tagged:
-            data.update({ "tag": self.tag })
-        import json
-        return json.dumps(data, indent=2)
+    @property
+    def awaited_type(self) -> AwaitedType | None:
+        if self._content is None or len(self._content) == 0:
+            return AwaitedType.REQUIRE_CONTENT
+        if any([(isinstance(block, ToolCall) and block.result is None) for block in self._content]):
+            return AwaitedType.REQUIRE_TOOL_RESULT
+        return None

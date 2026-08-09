@@ -1,51 +1,151 @@
-from typing import Any
+from typing import Any, overload
 
 from vespwood_generator import (
-    Tag, Message, Response
+    Tag, Message
 )
 from vespwood.types import (
     Params,
-    SchemaInfo, 
+    SchemaList,
     ToolsList, 
     HooksList, 
     ValidatorsList, 
     Saves
 )
-from vespwood.message import Prompt
-from vespwood.tagged_messages import TaggedMessages
+from vespwood.prompt import Prompt
 
 from ._format_object import FormatKeys, to_format_object
 from .prompt_structure import PromptStructure
 
 
 class MessageList(PromptStructure):
-    DEFAULT_LAST_TAG = "response_last"
 
-    def __init__(self,
-                prompt_list: list[Prompt | PromptStructure], 
-                *,
-                id: str | None = None,
-                name: str | None = None,
-                description: str | None = None,
-                schemas: list[SchemaInfo] | None = None,
-                tools: ToolsList | None = None,
-                hooks: HooksList | None = None,
-                validators: ValidatorsList | None = None,
-                iterator: str | None = None, 
-                iter_key: str | None = None,
-                co_iterators: list[str] | None = None, 
-                co_iter_keys: list[str | None] | None = None,
-                default_co_iter_values: list[str | None] | None = None,
-                initial: PromptStructure | None = None,
-                whilekey: str | None = None,
-                ifkey: str | list[str] | None = None,
-                match: str | int | bool | None = None,
-                then: PromptStructure | None = None,
-                switch: str | None = None, 
-                cases: list[PromptStructure] | None = None,
-                params: Params | None = None,
-                **kwargs
-            ):
+    @overload
+    def __init__(
+        self,
+        id: str,
+        *,
+        prompt_list: list[Prompt | PromptStructure | str],
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        **kwargs
+    ): ...
+    @overload
+    def __init__(
+        self,
+        id: str,
+        *,
+        iterator: str, 
+        prompt_list: list[Prompt | PromptStructure | str],
+        initial: list[Prompt | PromptStructure | str] | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        iter_key: str | None = None,
+        index_key: str | None = None,
+        params: Params | None = None,
+        **kwargs
+    ): ...
+    @overload
+    def __init__(
+        self,
+        id: str,
+        *,
+        while_key: str,
+        prompt_list: list[Prompt | PromptStructure | str],
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        initial: list[Prompt | PromptStructure | str] | None = None,
+        match: str | int | bool | dict | Logic | Expression | None = None,
+        index_key: str | None = None,
+        params: Params | None = None,
+        **kwargs
+    ): ...
+    @overload
+    def __init__(
+        self,
+        id: str,
+        *,
+        if_key: str,
+        prompt_list: list[Prompt | PromptStructure | str],
+        else_list: list[Prompt | PromptStructure | str],
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        match: str | int | bool | dict | Logic | Expression | None = None,
+        params: Params | None = None,
+        **kwargs
+    ): ...
+    @overload
+    def __init__(
+        self,
+        id: str,
+        *,
+        cases: list[PromptStructure | str],
+        prompt_list: list[Prompt | PromptStructure | str],
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        switch: str | None = None, 
+        params: Params | None = None,
+        **kwargs
+    ): ...
+    @overload
+    def __init__(
+        self,
+        id: str,
+        *,
+        match: str | int | bool | dict | Logic | Expression | None,
+        prompt_list: list[Prompt | PromptStructure | str],
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        params: Params | None = None,
+        **kwargs
+    ): ...
+    def __init__(
+        self,
+        id: str,
+        *,
+        prompt_list: list[Prompt | PromptStructure | str],
+        iterator: str | None = None,
+        while_key: str | None = None,
+        if_key: str | None = None,
+        cases: list[PromptStructure | str] | None = None,
+        match: str | int | bool | dict | Logic | Expression | None = None,
+        else_list: list[Prompt | PromptStructure | str] | None = None,
+        initial: list[Prompt | PromptStructure | str] | None = None,
+        iter_key: str | None = None,
+        index_key: str | None = None,
+        switch: str | None = None,
+        name: str | None = None,
+        description: str | None = None,
+        schemas: SchemaList | None = None,
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        params: Params | None = None,
+        **kwargs
+    ):
         super().__init__(
             prompt_list, 
             id=id,
@@ -57,27 +157,25 @@ class MessageList(PromptStructure):
             validators=validators,
             iterator=iterator, 
             iter_key=iter_key,
-            co_iterators=co_iterators,
-            co_iter_keys=co_iter_keys,
-            default_co_iter_values=default_co_iter_values,
+            index_key=index_key,
             initial=initial,
-            whilekey=whilekey,
-            ifkey=ifkey,
+            while_key=while_key,
+            if_key=if_key,
             match=match,
-            then=then,
+            else_list=else_list,
             switch=switch, 
             cases=cases,
             params=params
         )
         self._format_keys: FormatKeys = to_format_object(kwargs)
-        self._tagged_messages: dict[str, Message] = {}
+        self._prompt_id_map: dict[str, Prompt] = {}
 
 
     @classmethod
-    def from_prompt_structure(cls, prompt_structure: PromptStructure, *, keys: dict[str, Any] = {}) -> "MessageList":
+    def from_prompt_structure(cls, prompt_structure: PromptStructure, *, args: dict[str, Any] = {}) -> "MessageList":
         self = cls(
-            prompt_structure,
-            id=prompt_structure.id,
+            prompt_structure.id,
+            prompt_list=prompt_structure.prompt_list,
             name=prompt_structure.name,
             description=prompt_structure.description,
             schemas=prompt_structure.schemas,
@@ -86,75 +184,49 @@ class MessageList(PromptStructure):
             validators=prompt_structure.validators,
             iterator=prompt_structure.iterator, 
             iter_key=prompt_structure.iter_key,
-            co_iterators=prompt_structure.co_iterators,
-            co_iter_keys=prompt_structure.co_iter_keys,
-            default_co_iter_values=prompt_structure.default_co_iter_values,
             initial=prompt_structure.initial,
-            whilekey=prompt_structure.whilekey,
-            ifkey=prompt_structure.ifkey,
-            match=prompt_structure.matchkey,
-            then=prompt_structure.then,
+            while_key=prompt_structure.while_key,
+            if_key=prompt_structure.if_key,
+            match=prompt_structure.match_key,
+            else_list=prompt_structure.else_list,
             switch=prompt_structure.switch, 
             cases=prompt_structure.cases,
             params=prompt_structure.params
             
         )
-        keys = to_format_object(keys)
-        self._format_keys.update(keys)
+        args = to_format_object(args)
+        self._format_keys.update(args)
         return self
-    
+
 
     @property
-    def tagged_messages(self) -> dict[str, Message]:
-        return TaggedMessages(self._tagged_messages)
-    
-
-    @property
-    def format_keys(self) -> dict[str, Any]:
+    def args(self) -> dict[str, Any]:
         return self._format_keys.normalized
     
 
-    def  get_prompt_list(self) -> tuple[list[Prompt], dict[str, Any], Tag | None, SchemaInfo | None, ToolsList | None, HooksList | None, ValidatorsList | None, Saves | None]:
-        msgs, format_keys, tag, *rest = self.get_usables(self._format_keys, tagged_messages=self._tagged_messages)
-        for prompt in msgs:
-            if prompt.is_tagged:
-                if prompt.tag not in self._tagged_messages:
-                    self._tagged_messages[prompt.tag] = prompt
+    def get_prompt_list(self) -> tuple[list[Message], dict[str, Any], Prompt | None]:
+        msgs, format_keys, awaited_prompt = self.get_usables(self._format_keys, message_id_map=self._prompt_id_map)
+        return msgs, format_keys.normalized, awaited_prompt
 
-        # Adding default last message
-        if tag is None and len(msgs) > 0 and msgs[-1].role != "assistant":
-            tag = MessageList.DEFAULT_LAST_TAG
-            prompt = Prompt.AWAITING_RESPONSE() @ tag
-            if tag in self._tagged_messages:
-                message = self._tagged_messages[tag]
-                if message:
-                    prompt.update_message(message)
-                    if not prompt.response_awaited:
-                        msgs.append(prompt)
-                        return msgs, format_keys, *([None] * 6)
 
-        return msgs, format_keys.normalized, tag, *rest
-    
-
-    def add_response(self, response: Response, *, keys: dict[str, Any] = {}):
-        self._tagged_messages[response.tag] = response
-        if any(isinstance(block, dict) for block in response):
-            self._format_keys[response.tag] = to_format_object(list(filter(lambda b: isinstance(b, dict), response.content))[0])
-        keys = to_format_object(keys)
-        
+    def update_message(self, id: str, message: Message, *, args: dict[str, Any] = {}):
+        self._prompt_id_map[id] = message
+        if any(isinstance(block, dict) for block in message.content):
+            self._format_keys[message.tag] = to_format_object(list(filter(lambda b: isinstance(b, dict), message.content))[0])
+        keys = to_format_object(message.saved_args)
         self._format_keys.update(keys)
 
 
-    def add_keys(self, keys: dict[str, Any]):
-        keys = to_format_object(keys)
-        self._format_keys.update(keys)
+    def add_args(self, args: dict[str, Any]):
+        args = to_format_object(args)
+        self._format_keys.update(args)
 
 
     def __repr__(self):
-        msgs, *_ = self.get_usables(self._format_keys, tagged_messages=self._tagged_messages)
+        msgs, *_ = self.get_usables(self._format_keys, message_id_map=self._prompt_id_map)
         return str(msgs)
     
 
     def __str__(self):
-        msgs, *_ = self.get_usables(self._format_keys, tagged_messages=self._tagged_messages)
+        msgs, *_ = self.get_usables(self._format_keys, message_id_map=self._prompt_id_map)
         return str(msgs)        
