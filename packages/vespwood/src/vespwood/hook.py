@@ -19,7 +19,7 @@ class Hook(Supplimentable["message"], ABC, Generic[I]):
     def __init__(self, name: str | None = None, description: str | None = None):
         self._name: str = name or self.__class__.__name__
         self._description: str | None = description or self.__class__.__doc__
-        def stub(*args: I.args, *kwargs: I.kwargs): ...
+        def stub(*args: I.args, **kwargs: I.kwargs): ...
         self._schema: Schematic = Schematic.to_json_schema(stub)
 
     @property

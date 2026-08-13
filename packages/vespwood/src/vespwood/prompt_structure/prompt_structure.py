@@ -5,8 +5,11 @@ import uuid
 from typing import Any, overload
 from dataclasses import dataclass
 from ._format_object import FormatInt, FormatList, FormatKeys, to_format_object
-from vespwood_generator import Tag, Message
+from vespwood_generator import Message
 
+from vespwood.tag import (
+    Tag
+)
 from vespwood.types import (
     Params,
     SchemaList, 

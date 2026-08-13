@@ -1,7 +1,7 @@
 from typing import Any, overload
 
 from vespwood_generator import (
-    Tag, Message
+    Message
 )
 from vespwood.types import (
     Params,
@@ -12,7 +12,7 @@ from vespwood.types import (
     Saves
 )
 from vespwood.prompt import Prompt
-
+from vespwood.tag import Tag
 from ._format_object import FormatKeys, to_format_object
 from .prompt_structure import PromptStructure
 

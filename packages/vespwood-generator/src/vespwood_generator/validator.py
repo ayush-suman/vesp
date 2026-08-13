@@ -1,16 +1,16 @@
 import inspect
 from abc import ABC, abstractmethod
-from typing import Protocol, Any, ParamSpec, Generic, overload
+from typing import Protocol, Any, ParamSpec, Generic, Awaitable
 from vespwood_generator.message import Message
 from vespwood_generator.suppliment import Supplimentable
 
 I = ParamSpec("I")
 class ValidatorFn(Protocol, Generic[I]):
-    def __call__(messages: list[Message], response: Response, *args: I.args, **kwargs: I.kwargs):
+    def __call__(messages: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs):
         ...
 
 class AsyncValidatorFn(Protocol, Generic[I]):
-    async def __call__(messages: list[Message], response: Response, *args: I.args, **kwargs: I.kwargs):
+    async def __call__(messages: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs):
         ...
 
 class Validator(Supplimentable["messages", "response"], ABC, Generic[I]):
@@ -28,12 +28,12 @@ class Validator(Supplimentable["messages", "response"], ABC, Generic[I]):
         return self._description
 
     @abstractmethod
-    def validate(self, messages: list[Message], response: Response, *args: I.args, **kwargs: I.kwargs) -> None | Awaitable[None]:
+    def validate(self, messages: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs) -> None | Awaitable[None]:
         ...
 
-    def __call__(self, messages: list[Message], response: Response, *args: I.args, **kwargs: I.kwargs):
+    async def __call__(self, messages: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs):
         task = self.validate(response, messages, *args, **kwargs)
-        if task and inspect.isawaitable(task)
+        if task and inspect.isawaitable(task):
             await task
 
 
@@ -46,7 +46,7 @@ def validator(func: ValidatorFn[I] | AsyncValidatorFn[I] | None = None, *, name:
                     self._description = description or fn.__doc__
                     super().__init__()
 
-                async def validate(self, prompts: list[Message], response: Response, *args: I.args, **kwargs: I.kwargs):
+                async def validate(self, prompts: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs):
                     return await fn(prompts, response, *args, **kwargs)
         
             Wrapper.__class__.__qualname__ = Validator.__class__.__qualname__
@@ -59,7 +59,7 @@ def validator(func: ValidatorFn[I] | AsyncValidatorFn[I] | None = None, *, name:
                     self._description = description or fn.__doc__
                     super().__init__()
 
-                def validate(self, prompts: list[Message], response: Response, *args: I.args, **kwargs: I.kwargs):
+                def validate(self, prompts: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs):
                     return fn(prompts, response, *args, **kwargs)
         
             Wrapper.__class__.__qualname__ = Validator.__class__.__qualname__

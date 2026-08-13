@@ -33,11 +33,7 @@ class Tool(Schematic, Generic[I, O]):
     @property
     def schema(self) -> dict[str, Any]:
         return self._schema
-    
-    @overload
-    def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O: ...
-    @overload
-    def __call__(self, *args: I.args, **kwargs: I.kwargs) ->Awaitable[O]: ...
+
     @abstractmethod
     def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O | Awaitable[O]: ...
 
