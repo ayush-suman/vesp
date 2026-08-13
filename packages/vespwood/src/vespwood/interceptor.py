@@ -2,29 +2,44 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable, Awaitable
 import inspect
 from typing import Protocol, TypeAlias, overload
-from vespwood.message import Prompt
 
 
 class OnResponse(Protocol):
-    def __call__(self, response: Response) -> None: ...
+    def __call__(response: Response) -> None: ...
 
 class AsyncOnResponse(Protocol):
-    async def __call__(self, response: Response) -> None: ...
+    async def __call__(response: Response) -> None: ...
 
-ResponseHandler: TypeAlias = OnResponse | AsyncOnResponse
+class ResponseHandler:
+    def __init__(self, on_response: OnResponse | AsyncOnResponse):
+        self.on_response = on_response
+
+    async def __call__(self, response: Response):
+        if inspect.iscoroutinefunction(self.on_response):
+            return await self.on_response(response)
+        else:
+            return self.on_response(response)
+
 
 NameSession: TypeAlias = Callable[[str, str | None, str | None], None]
 
 class InterceptorFn(Protocol):
-    asyn def __call__(
-        self,
+    def __call__(
         session_id: str,
         messages: list[Message],
         args: dict[str, Any],
         awaited_prompt: Prompt | None
     ) -> ResponseHandler | None: ...
 
-class Interceptor(ABC, InterceptorFn):
+class AsyncInterceptorFn(Protocol):
+    async def __call__(
+        session_id: str,
+        messages: list[Message],
+        args: dict[str, Any],
+        awaited_prompt: Prompt | None
+    ) -> ResponseHandler | None: ...
+
+class Interceptor(ABC):
     __bind_name_with_session: NameSession | None = None
 
     def name_session(self, function: NameSession):
@@ -38,22 +53,7 @@ class Interceptor(ABC, InterceptorFn):
             else: 
                 func(id, name, description)
             
-    @overload
-    def intercept(
-        self, 
-        session_id: str,
-        messages: list[Message],
-        args: dict[str, Any],
-        awaited_prompt: Prompt | None
-    ) -> ResponseHandler | None: ...
-    @overload
-    async def intercept(
-        self, 
-        session_id: str,
-        messages: list[Message],
-        args: dict[str, Any],
-        awaited_prompt: Prompt | None
-    ) -> Awaitable[ResponseHandler | None]: ...
+   
     @abstractmethod
     def intercept(
         self,
@@ -61,7 +61,7 @@ class Interceptor(ABC, InterceptorFn):
         messages: list[Message],
         args: dict[str, Any],
         awaited_prompt: Prompt | None,
-    ) -> ResponseHandler | Awaitable[ResponseHandler | None]:
+    ) -> ResponseHandler | None | Awaitable[ResponseHandler | None]:
         ...
 
     async def __call__(
@@ -71,21 +71,14 @@ class Interceptor(ABC, InterceptorFn):
         args: dict[str, Any],
         awaited_prompt: Prompt | None
     ) -> ResponseHandler | None:
-        if inspect.iscoroutinefunction(self.intercept):
-            return await self.intercept(
-                session_id, messages, args, awaited_prompt
-            )
-        else:
-            return self.intercept(
-                session_id, messages, args, awaited_prompt
-            )
+        on_response = self.intercept(session_id, messages, args, awaited_prompt)
+        if on_response is not None:
+            if inspect.isawaitable(on_response):
+                on_response = await on_response
+            return ResponseHandler(on_response)
+        
 
-
-@overload
-def interceptor(func: InterceptorFn, *, name_session: NameSession | None = None) -> Interceptor: ...
-@overload
-def interceptor(func: AsyncInterceptorFn, *, name_session: NameSession | None = None) -> Interceptor: ...
-def interceptor(func: InterceptorFn | AsyncInterceptorFn, *, name_session: NameSession | None = None) -> Interceptor:
+def interceptor(func: InterceptorFn | AsyncInterceptorFn | None = None, *, name_session: NameSession | None = None) -> Interceptor:
     def wrapper(fn: InterceptorFn | AsyncInterceptorFn):
         if inspect.iscoroutinefunction(fn):
             class Wrapper(Interceptor):

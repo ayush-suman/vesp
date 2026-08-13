@@ -1,7 +1,7 @@
 from abc import abstractmethod
-from typing import Any, Callable, Generic, ParamSpec, TypeVar
-
-from vespwood_generator import Schematic, Tool
+import inspect
+from typing import Any, Callable, Concatenate, Generic, ParamSpec, TypeVar, Awaitable
+from vespwood_generator import Schematic, Tool, Supplimentable, suppliment
 from vespwood_generator.message import Message
 from .hook import Hook
 
@@ -9,19 +9,21 @@ from .hook import Hook
 I = ParamSpec("I")
 O = TypeVar("O")
 
-class HookTool(Tool[I, O], Generic[I, O]):
+class HookTool(Tool[Concatenate[Message, I], tuple[dict[str, Any], O]], Supplimentable["message"], Generic[I, O]):
     def __init__(self, hook: Hook, schema: Schematic | None = None, name: str | None = None, description: str | None = None):
         super().__init__(name or hook.name, description or hook.description, schema or hook.schema)
         self._hook = hook
 
     @abstractmethod
-    def tool_result(self, returned_args: dict[str, Any]) -> O: ...
+    def tool_result(self, **kwargs) -> O | Awaitable[O]: ...
 
-    async def __call__(self, latest_response: Message, *args: I.args, **kwds: I.kwargs) -> tuple[dict[str, Any], O]:
-        returned_args = await self._hook(latest_response, *args, **kwds)
-        result = self.tool_result(returned_args)
+    async def __call__(self, message: Message, *args: I.args, **kwds: I.kwargs) -> tuple[dict[str, Any], O]:
+        returned_args = await self._hook(message, *args, **kwds)
+        tool_result = suppliment(self.tool_result, **returned_args)
+        result = tool_result()
+        if inspect.isawaitable(result):
+            result = await result
         return returned_args, result
-
 
 
 def hooktool(func: Callable[[dict[str, Any]], O] | None = None, *, hook: Hook[I], schema: Schematic, name: str | None = None, description: str | None = None):

@@ -25,13 +25,14 @@ class Generator(metaclass=GeneratorClass):
     ) -> Message: ...
 
 
-    async def get_response(self, messages: list[Message], format_keys: dict[str, Any], schema: Schema | None, tools: list[Tool] | None, validators: list[Validator] | None, continue_on_max_token: bool = True, retry_on_rate_limit: bool = True, retry_with_delay: int = 0) -> Message:
+    async def get_response(self, messages: list[Message], args: dict[str, Any], schema: Schema | None, tools: list[Tool] | None, validators: list[Validator] | None, continue_on_max_token: bool = True, retry_on_rate_limit: bool = True, retry_with_delay: int = 0) -> Message:
         response = None
         try:
             response = await self.__prompt__(messages, schema, tools)
-            print("Received response:", response.content)
             if validators:
-                for v in validators: v.validate(messages, response, format_keys)
+                for v in validators: 
+                    v = v.suppliment(**args)
+                    await v(messages, response)
             return response
         except ValidationError as e:
             messages.append(response)

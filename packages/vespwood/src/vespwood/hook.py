@@ -1,15 +1,19 @@
 from abc import ABC, abstractmethod
 import inspect
-from typing import Any, Protocol, Generic, ParamSpec
-from vespwood_generator import Message, Tool, Schematic
+from typing import Any, Protocol, Generic, ParamSpec, Awaitable
+from vespwood_generator import Message, Tool, Schematic, Supplimentable
 
 
 I = ParamSpec('I')
-class HookFn(Protocol, Generic[I]):
-    async def __call__(self, latest_response: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any]: 
+class AsyncHookFn(Protocol, Generic[I]):
+    async def __call__(message: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any]: 
         ...
 
-class Hook(HookFn[I], ABC, Generic[I]):
+class HookFn(Protocol, Generic[I]):
+    def __call__(message: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any]: 
+        ...
+
+class Hook(Supplimentable["message"], ABC, Generic[I]):
     __slots__ = "_name", "_description"
 
     def __init__(self, name: str | None = None, description: str | None = None):
@@ -30,36 +34,47 @@ class Hook(HookFn[I], ABC, Generic[I]):
     def schema(self) -> Schematic:
         return self._schema
 
-    @overload
-    def on_response(self, latest_response: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any] | None: ...
-    @overload
-    def on_response(self, latest_response: Message, *args: I.args, **kwargs: I.kwargs) -> Awaitable[dict[str, Any] | None]: ...
     @abstractmethod
-    def on_response(self, latest_response: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any] | Awaitable[dict[str, Any] | None]: ...
+    def on_response(self, message: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any] | Awaitable[dict[str, Any] | None]: ...
 
 
-    async def __call__(self, latest_response, *args: I.args, **kwargs: I.kwargs) -> O:
-        if inspect.iscoroutinefunction(self.on_response):
-            return await self.on_response(latest_response, *args, **kwargs) or {}
+    async def __call__(self, message: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any]:
+        new_args = self.on_response(message, *args, **kwargs)
+        if inspect.isawaitable(new_args):
+            new_args = await new_args
+        return new_args or {}
+
+
+def hook(func: AsyncHookFn[I] | HookFn[I] | None = None, *, name: str | None = None, description: str | None = None) -> Hook[I]:
+    def wrapper(fn: AsyncHookFn[I] | HookFn[I]):
+        if inspect.iscoroutinefunction(fn):
+            class Wrapper(Hook[I]):
+                def __init__(self):
+                    super().__init__(
+                        name=name or fn.__name__, 
+                        description=description or fn.__doc__
+                    )
+
+                async def on_response(self, latest_response: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any] | None:
+                    return await fn(latest_response, *args, **kwargs)
+        
+            Wrapper.__class__.__qualname__ = fn.__class__.__qualname__
+            Wrapper.__class__.__name__ = fn.__class__.__name__
+            return Wrapper()
         else:
-            return self.on_response(latest_response, *args, **kwargs) or {}
+            class Wrapper(Hook[I]):
+                def __init__(self):
+                    super().__init__(
+                        name=name or fn.__name__, 
+                        description=description or fn.__doc__
+                    )
 
-
-def hook(func: HookFn[I] | None = None, *, name: str | None = None, description: str | None = None) -> Hook[I]:
-    def wrapper(fn: HookFn[I]):
-        class Wrapper(Hook[I]):
-            def __init__(self):
-                super().__init__(
-                    name=name or fn.__name__, 
-                    description=description or fn.__doc__
-                )
-
-            def on_response(self, latest_response: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any] | Awaitable[dict[str, Any]] | None:
-                return fn(latest_response, *args, **kwargs)
-    
-        Wrapper.__class__.__qualname__ = fn.__class__.__qualname__
-        Wrapper.__class__.__name__ = fn.__class__.__name__
-        return Wrapper()
+                def on_response(self, latest_response: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any] | None:
+                    return fn(latest_response, *args, **kwargs)
+        
+            Wrapper.__class__.__qualname__ = fn.__class__.__qualname__
+            Wrapper.__class__.__name__ = fn.__class__.__name__
+            return Wrapper()
 
     if func:
         wrapper.__qualname__ = func.__qualname__

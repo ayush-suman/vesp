@@ -14,7 +14,7 @@ from vespwood_generator import (
 )
 from vespwood.prompt import Prompt, AwaitedType
 from vespwood.types import PreparedArgs, HooksList, Params
-from vespwood._utils import filter_params, invoke_funcs, suppliment_args
+from vespwood._utils import get_as_args, invoke_funcs
 from vespwood.interceptor import Interceptor
 from vespwood.hook import Hook
 from vespwood.prompt_structure import PromptStructure, MessageList
@@ -24,8 +24,7 @@ import bisect
 
 
 I = ParamSpec("I")
-O = TypeVar("O", bound=dict)
-class Completor(Tool[I, O], Generic[I, O]):
+class Completor(Tool[I, dict[str, Any]], Generic[I]):
     __slots__ = "_generator", "_prompt_structure", "_name", "_description", "_params", "_schemas", "_tools", "_hooks", "_validators", "_interceptors", "_output", "_delay_constant", "_max_requests", "_generation_queue", "_lock", "_continue_on_max_token", "_retry_on_rate_limit", "_retry_with_delay",
 
     def __init__(self,
@@ -41,7 +40,7 @@ class Completor(Tool[I, O], Generic[I, O]):
                 validators: list[Validator] = [],
                 interceptors: list[Interceptor] = [],
                 structures: list[PromptStructure | dict | list | str],
-                output: list[str | dict[str, str]] | None = None,
+                output: list[str] | None = None,
                 delay_constant: int = 0,
                 max_requests: int = 0,
                 continue_on_max_token: bool = True,
@@ -109,7 +108,7 @@ class Completor(Tool[I, O], Generic[I, O]):
         self._interceptors: list[Interceptor] = interceptors
         self._delay_constant: int = delay_constant
         self._max_requests: int = max_requests
-        self._output: list[str | dict[str, str]] = output
+        self._output: list[str] = output
         self._generation_queue: asyncio.Queue = asyncio.Queue(maxsize=max_requests or 0)
         self._lock = asyncio.Lock()
 
@@ -158,7 +157,7 @@ class Completor(Tool[I, O], Generic[I, O]):
             i = bisect.bisect_left(self.hooks, hook_name, key=lambda h: h.name)
             if i == len(self.hooks) or self.hooks[i].name != hook_name:
                 raise MissingHookError([hook_name])
-            hook = suppliment_args(self.hooks[i], skip_params=["message"], args=args)
+            hook = self.hooks[i].suppliment(**args)
             returned_args = hook(message)
             if returned_args: 
                 new_args.update(returned_args)
@@ -174,8 +173,8 @@ class Completor(Tool[I, O], Generic[I, O]):
                 if i == len(self.tools) or self.tools[i].name != block.name:
                     raise MissingToolError([block.name])
                 result = None
-                if isinstance(self.tools[i], HookTool):
-                    hooktool = suppliment_args(self.tools[i], skip_params=["message"], **args)
+                if isinstance(tool := self.tools[i], HookTool):
+                    hooktool = tool.suppliment(**args)
                     returned_args, result = await hooktool(message, **block.arguments)
                     if returned_args:
                         new_args.update(returned_args)
@@ -287,8 +286,9 @@ class Completor(Tool[I, O], Generic[I, O]):
 
         while awaited_prompt:    
             try:
-                if awaited_prompt.awaited_type == AwaitedType.REQUIRE_CONTENT:
-                    _schema = self._load_schema(awaited_prompt.schema) if awaited_prompt.schema else None
+                _schema = self._load_schema(awaited_prompt.schema) if awaited_prompt.schema else None
+
+                if awaited_prompt.awaited_type == AwaitedType.REQUIRE_CONTENT:    
                     _tools: list[Tool] = self._load_tools(awaited_prompt.tools) if awaited_prompt.tools else []
                     _validators = self._load_validators(awaited_prompt.validators) if awaited_prompt.validators else []
                 
@@ -317,11 +317,11 @@ class Completor(Tool[I, O], Generic[I, O]):
                 new_args = await self._invoke_tools(response, args=args)
 
                 if _schema:
-                    new_args.update(awaited_prompt.saved_args)
+                    new_args.update(awaited_prompt.saved_args) # TODO: Change to get loaded values instead of dict
                     if awaited_prompt.is_tagged:
                         payload = _schema.load(list(filter(lambda b: isinstance(b, dict), response.content))[0])
                         new_args.update({ awaited_prompt.tag: payload })
-
+                        new_args.update(get_as_args(payload, awaited_prompt.saves))
 
                 if awaited_prompt.hooks:
                     new_args |= self._invoke_hooks(awaited_prompt.hooks, response, args)
@@ -334,28 +334,22 @@ class Completor(Tool[I, O], Generic[I, O]):
                 break
 
         await self._generation_queue.get() # Signals a request completed
+        if self._output:
+            return { key: value for key, value in message_list.args.items() if key in self._output }
         return message_list.args
     
 
-    async def __schedule__(self, **args: I.kwargs) -> O:
+    async def __schedule__(self, **args: I.kwargs) -> dict[str, Any]:
         if self._generation_queue.full():
             print("Generation queue is full. Waiting for a request to complete.")
         async with self._lock:
             queuing_task = asyncio.create_task(self._generation_queue.put(None)) # Wait if max_requests reached
             delay_task = asyncio.create_task(asyncio.sleep(self._delay_constant))  # Delay before processing the request
             await asyncio.gather(queuing_task, delay_task)
-        response = await self.__complete__(args=args)
-        if self._output:
-            output: O = {}
-            for key in self._output:
-                value = key if isinstance(key, str) else list(key.values())[0]
-                output[value] = response[key]
-            return output
-        else: 
-            return response
+        return await self.__complete__(**args)
 
 
-    async def __call__(self, **args: I.kwargs) -> O:
+    async def __call__(self, **args: I.kwargs) -> dict[str, Any]:
         if self.params:
             params = set(map(lambda p: p if isinstance(p, str) else list(p)[0], params))
             if diff := params - set(args):

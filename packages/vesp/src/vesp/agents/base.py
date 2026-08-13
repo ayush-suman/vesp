@@ -1,7 +1,7 @@
 from __future__ import annotations
 from abc import ABCMeta, abstractmethod
-from typing import Literal
-from vespwood import Schematic
+from typing import Literal, ParamSpec, TypeVar, Generic
+from vespwood import Tool
 
 from vesp.invokation import Invokation
 
@@ -17,7 +17,9 @@ class AgentMeta(ABCMeta):
         return ScopedAgent
 
 
-class BaseAgent(Schematic, metaclass=AgentMeta): 
+I = ParamSpec("I")
+O = TypeVar("O")
+class BaseAgent(Generic[I, O], metaclass=AgentMeta): 
     def __init__(self):
         self._accessibility = "private"
 
@@ -30,5 +32,5 @@ class BaseAgent(Schematic, metaclass=AgentMeta):
         return self._accessibility == "public"
 
     @abstractmethod
-    def __call__(self, *args, **kwargs) -> Invokation:
+    def __call__(self, *args: I.args, **kwargs: I.kwargs) -> Invokation[O]:
         pass

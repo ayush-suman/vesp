@@ -1,14 +1,19 @@
+import inspect
 from abc import ABC, abstractmethod
-from typing import Protocol, Any
-from vespwood_generator.message import Message, Response
+from typing import Protocol, Any, ParamSpec, Generic, overload
+from vespwood_generator.message import Message
+from vespwood_generator.suppliment import Supplimentable
 
-
-class ValidatorFn(Protocol):
-    def __call__(self, prompts: list[Message], response: Response, format_keys: dict[str, Any]):
+I = ParamSpec("I")
+class ValidatorFn(Protocol, Generic[I]):
+    def __call__(messages: list[Message], response: Response, *args: I.args, **kwargs: I.kwargs):
         ...
 
+class AsyncValidatorFn(Protocol, Generic[I]):
+    async def __call__(messages: list[Message], response: Response, *args: I.args, **kwargs: I.kwargs):
+        ...
 
-class Validator(ABC, ValidatorFn):
+class Validator(Supplimentable["messages", "response"], ABC, Generic[I]):
     __slots__ = "_name", "_description"
 
     _name: str
@@ -23,27 +28,43 @@ class Validator(ABC, ValidatorFn):
         return self._description
 
     @abstractmethod
-    def validate(self, prompts: list[Message], response: Response, format_keys: dict[str, Any]):
+    def validate(self, messages: list[Message], response: Response, *args: I.args, **kwargs: I.kwargs) -> None | Awaitable[None]:
         ...
 
-    def __call__(self, prompts: list[Message], response: Response, format_keys: dict[str, Any]):
-        return self.validate(response, prompts, format_keys)
+    def __call__(self, messages: list[Message], response: Response, *args: I.args, **kwargs: I.kwargs):
+        task = self.validate(response, messages, *args, **kwargs)
+        if task and inspect.isawaitable(task)
+            await task
 
 
-def validator(func: ValidatorFn | None = None, *, name: str | None = None, description: str | None = None):
-    def wrapper(fn: ValidatorFn):
-        class Wrapper(Validator):
-            def __init__(self):
-                self._name = name or fn.__name__
-                self._description = description or fn.__doc__
-                super().__init__()
+def validator(func: ValidatorFn[I] | AsyncValidatorFn[I] | None = None, *, name: str | None = None, description: str | None = None):
+    def wrapper(fn: ValidatorFn[I] | AsyncValidatorFn[I]) -> Validator[I]:
+        if inspect.iscoroutinefunction(fn):
+            class Wrapper(Validator[I]):
+                def __init__(self):
+                    self._name = name or fn.__name__
+                    self._description = description or fn.__doc__
+                    super().__init__()
 
-            def validate(self, prompts: list[Message], response: Response, format_keys: dict[str, Any]):
-                return fn(prompts, response, format_keys)
-    
-        Wrapper.__class__.__qualname__ = Validator.__class__.__qualname__
-        Wrapper.__class__.__name__ = Validator.__class__.__name__
-        return Wrapper()
+                async def validate(self, prompts: list[Message], response: Response, *args: I.args, **kwargs: I.kwargs):
+                    return await fn(prompts, response, *args, **kwargs)
+        
+            Wrapper.__class__.__qualname__ = Validator.__class__.__qualname__
+            Wrapper.__class__.__name__ = Validator.__class__.__name__
+            return Wrapper()
+        else:
+            class Wrapper(Validator[I]):
+                def __init__(self):
+                    self._name = name or fn.__name__
+                    self._description = description or fn.__doc__
+                    super().__init__()
+
+                def validate(self, prompts: list[Message], response: Response, *args: I.args, **kwargs: I.kwargs):
+                    return fn(prompts, response, *args, **kwargs)
+        
+            Wrapper.__class__.__qualname__ = Validator.__class__.__qualname__
+            Wrapper.__class__.__name__ = Validator.__class__.__name__
+            return Wrapper()
     
     wrapper.__qualname__ = func.__qualname__
     wrapper.__name__ = func.__name__

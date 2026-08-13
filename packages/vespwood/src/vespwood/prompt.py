@@ -1,13 +1,14 @@
-
+from __future__ import annotations
 from typing import Any
 from enum import Enum
 import uuid
 from vespwood_generator import (
     Message,
     File, Image, ToolCall,
-    Tag, Role,
+    Role,
     Block
 )
+from vespwood.tag import Tag
 
 from vespwood.types import (
     Params, HooksList, SchemaInfo, ToolsList, ValidatorsList, Saves
@@ -100,7 +101,7 @@ class Prompt(Message):
     def tag(self) -> Tag:
         return self._tag
 
-    def __matmul__(self, other: str | Tag | None) -> "Message":
+    def __matmul__(self, other: str | Tag | None) -> Message:
         if other is None:
             return self
         if self.is_tagged:
@@ -137,7 +138,7 @@ class Prompt(Message):
         return self.copy()
 
 
-    def format_map(self, prompt_mapping) -> "Prompt":
+    def format_map(self, prompt_mapping) -> Prompt:
         prompt = self.copy()
         if prompt._content: 
             content = []

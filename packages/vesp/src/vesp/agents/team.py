@@ -32,8 +32,8 @@ def normalise(routes: TeamLike, prefix: str = "") -> dict[str, BaseAgent]:
 
   
 class Chain(list[Invokation]):
-    def __init__(self, *invokation: List[Invokation]):
-        super().__init__(invokation)
+    def __init__(self, *invokations: Invokation):
+        super().__init__(invokations)
 
     def with_next(self, invokation: Invokation) -> "Chain":
         chain = Chain(self)
