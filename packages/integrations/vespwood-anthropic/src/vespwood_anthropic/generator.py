@@ -6,8 +6,7 @@ from anthropic import AsyncAnthropic, RateLimitError as AnthropicRateLimitError,
 from vespwood_generator import (
     ToolCall,
     message_converter, 
-    Prompt, 
-    Response,
+    Message,
     Generator, 
     Schema, 
     Tool,
@@ -19,7 +18,7 @@ from vespwood_generator.blocks.structured import Structured
 
 
 @message_converter
-def _anthropic_messages_msg_converter(prompt: Prompt) -> list[dict[str, Any]]:
+def _anthropic_messages_msg_converter(prompt: Message) -> list[dict[str, Any]]:
     msgs = []
     content = []
     for block in prompt:
@@ -65,7 +64,7 @@ class AnthropicMessagesGenerator(Generator):
         self._model = AsyncAnthropic(api_key=api_key, timeout=timeout)
     
 
-    async def __prompt__(self, messages: list[Prompt], schema: Schema | None = None, tools: list[Tool] | None = None):
+    async def __prompt__(self, messages: list[Message], schema: Schema | None = None, tools: list[Tool] | None = None):
         prompts = _anthropic_messages_msg_converter(messages)
         
         output_config = omit
@@ -109,12 +108,12 @@ class AnthropicMessagesGenerator(Generator):
             # Structured
             if schema:
                 try:
-                    return Response(Structured(json.loads("".join([block.text for block in message.content if block.type=="text"]))))
+                    return Message(Structured(json.loads("".join([block.text for block in message.content if block.type=="text"]))))
                 except Exception as e:
                     print("\n\n**Failed to parse response as JSON**\nblock: \n\n", block.text)
                     raise e
                 
-            response = Response([])
+            response = Message([])
             for block in message.content:
                 if block.type == "text":
                     response.append(block.text)
