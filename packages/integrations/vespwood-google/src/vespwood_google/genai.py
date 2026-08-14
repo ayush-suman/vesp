@@ -1,12 +1,12 @@
 from google.genai import Client
 from google.genai.types import Content, Part, FunctionCall, FunctionResponse, GenerateContentConfig, Tool as GoogleTool, FunctionDeclaration
 from typing import overload
-from vespwood_generator import Generator, message_converter, Prompt, Structured, ToolCall, Schema, Tool, Response
+from vespwood_generator import Generator, message_converter, Message, Structured, ToolCall, Schema, Tool
 import json
 
 
 @message_converter
-def _google_genai_message_converter(prompt: Prompt):
+def _google_genai_message_converter(prompt: Message):
     parts = []
     for block in prompt.content:
         if isinstance(block, str):
@@ -45,7 +45,7 @@ class GoogleGenAIGenerator(Generator):
 
     async def __prompt__(
         self, 
-        messages: list[Prompt], 
+        messages: list[Message], 
         schema: Schema | None = None, 
         tools: list[Tool] | None = None
     ):
@@ -70,9 +70,9 @@ class GoogleGenAIGenerator(Generator):
         )
 
         if schema:
-            return Response(Structured(output.text))
+            return Message(Structured(output.text))
         
-        response = Response([])
+        response = Message([])
         content = output.candidates[0].content
         for part in content.parts:
             if part.text:
