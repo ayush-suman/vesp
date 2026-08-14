@@ -6,8 +6,7 @@ from openai import NOT_GIVEN, AsyncOpenAI, RateLimitError as OpenAIRateLimitErro
 
 from vespwood_generator import (
     message_converter, 
-    Prompt,
-    Response,
+    Message,
     Structured,
     ToolCall, 
     Generator, 
@@ -21,7 +20,7 @@ from vespwood_generator import (
 
 
 @message_converter
-def _openai_chat_completion_msg_converter(message: Prompt) -> list[dict[str, Any]]:
+def _openai_chat_completion_msg_converter(message: Message) -> list[dict[str, Any]]:
     msgs = []
     
     for block in message.content:
@@ -71,7 +70,7 @@ class OpenAIChatCompletionGenerator(Generator):
         self._model: AsyncOpenAI = AsyncOpenAI(api_key=api_key, timeout=timeout)
         
 
-    async def __prompt__(self, messages: list[Prompt], schema: Schema | None = None, tools: list[Tool] | None = None) -> Response: 
+    async def __prompt__(self, messages: list[Message], schema: Schema | None = None, tools: list[Tool] | None = None) -> Message: 
         prompts = _openai_chat_completion_msg_converter(messages)
 
         response_format = NOT_GIVEN
@@ -114,7 +113,7 @@ class OpenAIChatCompletionGenerator(Generator):
                 blocks = [ToolCall(id=tool.id, name=tool.function.name, arguments=json.loads(tool.function.arguments)) for tool in response.choices[0].message.tool_calls]
                 if text := response.choices[0].message.content:
                     blocks = [text, *blocks]
-                return Response(blocks)
+                return Message(blocks)
                 
             # Unfinished Response
             elif response.choices[0].finish_reason == "length":
@@ -122,10 +121,10 @@ class OpenAIChatCompletionGenerator(Generator):
             
             # Structured Response
             if schema:
-                return Response(Structured(response.choices[0].message.content))
+                return Message(Structured(response.choices[0].message.content))
             
             # Content
-            return Response(response.choices[0].message.content)
+            return Message(response.choices[0].message.content)
         
         except OpenAIRateLimitError as e:
             raise RateLimitError()
