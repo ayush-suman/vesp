@@ -69,6 +69,8 @@ class OpenAIResponsesGenerator(Generator):
                 "name": schema.name,
                 "schema": schema.schema,
             }
+            if schema.description:
+                output_format["description"] = schema.description
 
         openai_tools = NOT_GIVEN
         if tools:

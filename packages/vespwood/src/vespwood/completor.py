@@ -297,7 +297,8 @@ class Completor(Tool[I, dict[str, Any]], Generic[I]):
                         session_id,
                         messages,
                         args, 
-                        awaited_prompt
+                        awaited_prompt,
+                        _schema
                     )
                     response = await self._generator.get_response(
                         messages, 

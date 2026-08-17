@@ -81,8 +81,10 @@ class OpenAIChatCompletionGenerator(Generator):
                     "name": schema.name,
                     "schema": schema.schema,
                     "strict": True
-                    }
                 }
+            }
+            if schema.description:
+                response_format["json_schema"]["description"] = schema.description
 
         tools_schema = NOT_GIVEN
         if tools:

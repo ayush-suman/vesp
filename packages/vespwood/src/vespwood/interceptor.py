@@ -28,7 +28,8 @@ class InterceptorFn(Protocol):
         session_id: str,
         messages: list[Message],
         args: dict[str, Any],
-        awaited_prompt: Prompt | None
+        awaited_prompt: Prompt,
+        schema: Schema | None
     ) -> ResponseHandler | None: ...
 
 class AsyncInterceptorFn(Protocol):
@@ -36,7 +37,8 @@ class AsyncInterceptorFn(Protocol):
         session_id: str,
         messages: list[Message],
         args: dict[str, Any],
-        awaited_prompt: Prompt | None
+        awaited_prompt: Prompt,
+        schema: Schema | None
     ) -> ResponseHandler | None: ...
 
 class Interceptor(ABC):
@@ -60,7 +62,8 @@ class Interceptor(ABC):
         session_id: str,
         messages: list[Message],
         args: dict[str, Any],
-        awaited_prompt: Prompt | None,
+        awaited_prompt: Prompt,
+        schema: Schema | None
     ) -> ResponseHandler | None | Awaitable[ResponseHandler | None]:
         ...
 
@@ -69,7 +72,8 @@ class Interceptor(ABC):
         session_id: str,
         messages: list[Message],
         args: dict[str, Any],
-        awaited_prompt: Prompt | None
+        awaited_prompt: Prompt,
+        schema: Schema | None
     ) -> ResponseHandler | None:
         on_response = self.intercept(session_id, messages, args, awaited_prompt)
         if on_response is not None:
@@ -91,13 +95,15 @@ def interceptor(func: InterceptorFn | AsyncInterceptorFn | None = None, *, name_
                     session_id: str,
                     messages: list[Message],
                     args: dict[str, Any],
-                    awaited_prompt: Prompt | None
+                    awaited_prompt: Prompt,
+                    schema: Schema | None
                 ) -> ResponseHandler | None:
                     return await fn( 
                         session_id,
                         messages,
                         args,
                         awaited_prompt,
+                        schema
                     )
 
         else:
@@ -109,15 +115,17 @@ def interceptor(func: InterceptorFn | AsyncInterceptorFn | None = None, *, name_
                 def intercept(
                     self,
                     session_id: str,
-                    prompts: list[Prompt],
-                    format_keys: dict,
-                    awaited_prompt: Prompt | None
+                    messages: list[Message],
+                    args: dict[str, Any],
+                    awaited_prompt: Prompt,
+                    schema: Schema | None
                 ) -> ResponseHandler | None:
                     return fn( 
                         session_id,
                         prompts,
                         format_keys,
-                        awaited_prompt
+                        awaited_prompt,
+                        schema
                     )
 
         Wrapper.__name__ = func.__name__
