@@ -11,10 +11,13 @@ from vespwood.types import (
     ValidatorsList, 
     Saves
 )
+
 from vespwood.prompt import Prompt
 from vespwood.tag import Tag
 from ._format_object import FormatKeys, to_format_object
 from .prompt_structure import PromptStructure
+from vespwood.logic import Logic
+from vespwood.expression import Expression
 
 
 class MessageList(PromptStructure):
