@@ -126,6 +126,8 @@ class Schematic(ABC):
             return Schematic.__class_to_json_schema(func, fallback or Schematic.__any_to_json_schema)
 
         sig = inspect.signature(func)
+        print(func.__name__)
+        print(sig.parameters)
         type_hints = get_type_hints(func, include_extras=True)
         
         properties = {}
@@ -136,6 +138,8 @@ class Schematic(ABC):
         
         for name, _ in sig.parameters.items():
             py_type = type_hints.get(name)
+            # TODO: Handle if ParamSpecArgs or ParamSpecKwargs
+            # Skip to next and modify additionalProperties
             schema = Schematic.__type_to_json_schema(
                 py_type, 
                 fallback or Schematic.__any_to_json_schema

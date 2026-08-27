@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import inspect
 from typing import Any, Protocol, Generic, ParamSpec, Awaitable
-from vespwood_generator import Message, Tool, Schematic, Supplimentable
+from vespwood_generator import Message, Schematic, Supplimentable
 
 
 I = ParamSpec('I')
@@ -19,8 +19,6 @@ class Hook(Supplimentable["message"], ABC, Generic[I]):
     def __init__(self, name: str | None = None, description: str | None = None):
         self._name: str = name or self.__class__.__name__
         self._description: str | None = description or self.__class__.__doc__
-        def stub(*args: I.args, **kwargs: I.kwargs): ...
-        self._schema: Schematic = Schematic.to_json_schema(stub)
 
     @property
     def name(self) -> str:
@@ -29,10 +27,6 @@ class Hook(Supplimentable["message"], ABC, Generic[I]):
     @property
     def description(self) -> str | None:
         return self._description
-
-    @property
-    def schema(self) -> Schematic:
-        return self._schema
 
     @abstractmethod
     def on_response(self, message: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any] | Awaitable[dict[str, Any] | None]: ...
@@ -55,8 +49,8 @@ def hook(func: AsyncHookFn[I] | HookFn[I] | None = None, *, name: str | None = N
                         description=description or fn.__doc__
                     )
 
-                async def on_response(self, latest_response: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any] | None:
-                    return await fn(latest_response, *args, **kwargs)
+                async def on_response(self, message: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any] | None:
+                    return await fn(message, *args, **kwargs)
         
             Wrapper.__class__.__qualname__ = fn.__class__.__qualname__
             Wrapper.__class__.__name__ = fn.__class__.__name__
@@ -69,8 +63,8 @@ def hook(func: AsyncHookFn[I] | HookFn[I] | None = None, *, name: str | None = N
                         description=description or fn.__doc__
                     )
 
-                def on_response(self, latest_response: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any] | None:
-                    return fn(latest_response, *args, **kwargs)
+                def on_response(self, message: Message, *args: I.args, **kwargs: I.kwargs) -> dict[str, Any] | None:
+                    return fn(message, *args, **kwargs)
         
             Wrapper.__class__.__qualname__ = fn.__class__.__qualname__
             Wrapper.__class__.__name__ = fn.__class__.__name__

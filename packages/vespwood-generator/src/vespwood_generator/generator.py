@@ -39,7 +39,7 @@ class Generator(metaclass=GeneratorClass):
             messages.append(Message(role="system", content=e.content))
             return await self.get_response(
                 messages=messages,
-                format_keys=format_keys,
+                args=args,
                 schema=schema,
                 tools=tools,
                 validators=validators,
@@ -55,7 +55,7 @@ class Generator(metaclass=GeneratorClass):
                 messages.append(response)
                 remaining_response: Message = await self.get_response(
                     messages=messages,
-                    format_keys=format_keys,
+                    args=args,
                     tools=tools,
                     validators=validators,
                     continue_on_max_token=continue_on_max_token,
@@ -70,7 +70,7 @@ class Generator(metaclass=GeneratorClass):
                 await asyncio.sleep(retry_with_delay)
                 return await self.get_response(
                     messages=messages,
-                    format_keys=format_keys,
+                    args=args,
                     tools=tools,
                     schema=schema,
                     validators=validators,

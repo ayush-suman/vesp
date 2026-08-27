@@ -113,7 +113,7 @@ class AnthropicMessagesGenerator(Generator):
                     print("\n\n**Failed to parse response as JSON**\nblock: \n\n", block.text)
                     raise e
                 
-            response = Message([])
+            response = Message("assistant")
             for block in message.content:
                 if block.type == "text":
                     response.append(block.text)

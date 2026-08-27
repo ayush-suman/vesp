@@ -1,51 +1,51 @@
-from __future__ import annotations
-from typing import Any
 from enum import Enum
+from typing import Self
 import uuid
-from vespwood_generator import (
-    Message,
-    File, Image, ToolCall,
-    Role,
-    Block
-)
+
 from vespwood.tag import Tag
+from vespwood.types.hooks import HooksList
+from vespwood.types.params import Params
+from vespwood.types.saves import Saves
+from vespwood.types.schema import SchemaInfo
+from vespwood.types.tools import ToolsList
+from vespwood.types.validators import ValidatorsList
+from vespwood_generator.blocks import Block, Image, File, ToolCall
+from vespwood_generator.blocks.structured import Structured
+from vespwood_generator.message import Message
+from vespwood_generator.types.role import Role
 
-from vespwood.types import (
-    Params, HooksList, SchemaInfo, ToolsList, ValidatorsList, Saves
-)
 
-class AwaitedType(Enum):
-    REQUIRE_TOOL_RESULT = 1
-    REQUIRE_CONTENT = 2
-
-class Prompt(Message):
-    __slots__ = "_tag", "_params", "_schema", "_tools", "_hooks", "_validators", "_saves", "_json"
-
-    def __init__(self, 
-                id: str,
-                *,
-                role: Role, 
-                content: Block | list[Block] | None = None, 
-                params: Params | None = None, 
-                schema: SchemaInfo | None = None, 
-                tools: ToolsList | None = None,
-                hooks: HooksList | None = None,
-                validators: ValidatorsList | None = None,
-                saves: Saves | None = None):
-        self._id: str = id
+class PromptUnit(Message):
+    __slots__ = "_id", "_tag", "_params", "_schema", "_tools", "_hooks", "_validators", "_saves"
+    
+    def __init__(
+        self, 
+        id: uuid.UUID,
+        *,
+        role: Role, 
+        content: Block | list[Block] | None = None, 
+        params: Params | None = None, 
+        schema: SchemaInfo | None = None, 
+        tools: ToolsList | None = None,
+        hooks: HooksList | None = None,
+        validators: ValidatorsList | None = None,
+        saves: Saves | None = None,
+        tag: str | None = None
+    ):
+        self._id: uuid.UUID = id
         self._params: Params | None = params
         self._schema: SchemaInfo | None = schema
         self._tools: ToolsList | None = tools
         self._hooks: HooksList | None = hooks
         self._validators: ValidatorsList | None = validators
         self._saves: Saves | None = saves
-        self._tag: Tag = None
+        self._tag: Tag | None = Tag(tag) if tag else None
         super().__init__(role, content)
 
 
     @classmethod
-    def load_from_dict(cls, data: dict):
-        def convert(content: str | dict) -> str | dict | Image | File | ToolCall:
+    def load_from_dict(cls, id: uuid.UUID, data: dict):
+        def convert(content: str | dict) -> str | dict:
             if isinstance(content, str):
                 return content.strip()
             elif isinstance(content, dict):
@@ -79,8 +79,9 @@ class Prompt(Message):
         hooks = data.get("hooks")
         validators = data.get("validators")
         saves = data.get("saves")
+        tag = data.get("tag")
         prompt = cls(
-            uuid.uuid4().hex,
+            id,
             role=role,
             content=content, 
             params=params, 
@@ -88,38 +89,28 @@ class Prompt(Message):
             tools=tools, 
             hooks=hooks, 
             validators=validators, 
-            saves=saves
-        ) @ data.get("tag")
-
+            saves=saves,
+            tag=tag
+        )
         return prompt
 
-    @property
-    def is_tagged(self) -> bool:
-        return self._tag
     
-    @property
-    def tag(self) -> Tag:
-        return self._tag
+    def update_content(self, content: Block | list[Block]):
+            if content is None:
+                self._content = None
+            elif isinstance(content, (str, Structured, ToolCall, Image, File)):
+                self._content = [content]
+            elif isinstance(content, list):
+                self._content = content
 
-    def __matmul__(self, other: str | Tag | None) -> Message:
-        if other is None:
-            return self
+    def indexed(self, idx) -> Self:
+        self = super().indexed(idx)
         if self.is_tagged:
-            raise ValueError("This response is already tagged with", self._tag, "as tag")
-        self._tag = Tag(other) if isinstance(other, str) else other
+            self._tag = self._tag.indexed(idx)
         return self
-    
-    @property
-    def is_awaited(self) -> bool:
-        if self._content is None or len(self._content) == 0:
-            return True
-        if any([(isinstance(block, ToolCall) and block.result is None) for block in self._content]):
-            return True
-        return False
-    
 
     def copy(self):
-        prompt = Prompt(
+        prompt = PromptUnit(
             self._id,
             role=self._role, 
             content=self._content.copy() if self._content else None, 
@@ -128,17 +119,17 @@ class Prompt(Message):
             tools=self._tools.copy() if self._tools else None,
             hooks=self._hooks.copy() if self._hooks else None,
             validators=self._validators.copy() if self._validators else None,
-            saves=self._saves.copy() if self._saves else None
+            saves=self._saves.copy() if self._saves else None,
+            tag=self._tag.copy() if self._tag else None
         )
-        if self.is_tagged: 
-            prompt @= self.tag
         return prompt
+
     
     def __copy__(self):
         return self.copy()
 
-
-    def format_map(self, prompt_mapping) -> Prompt:
+    
+    def format_map(self, prompt_mapping) -> PromptUnit:
         prompt = self.copy()
         if prompt._content: 
             content = []
@@ -166,7 +157,7 @@ class Prompt(Message):
 
     @property
     def id(self):
-        return self._id
+        return self._id.hex
 
     @property
     def params(self):
@@ -193,15 +184,9 @@ class Prompt(Message):
         return self._saves
 
     @property
-    def saved_args(self) -> dict[str, Any]:
-        if self._saves and self._schema and self._content:
-            return { to: self.get(key) for key, to in self._saves.items() }
-        return {}
-
+    def is_tagged(self) -> bool:
+        return self._tag
+    
     @property
-    def awaited_type(self) -> AwaitedType | None:
-        if self._content is None or len(self._content) == 0:
-            return AwaitedType.REQUIRE_CONTENT
-        if any([(isinstance(block, ToolCall) and block.result is None) for block in self._content]):
-            return AwaitedType.REQUIRE_TOOL_RESULT
-        return None
+    def tag(self) -> Tag | None:
+        return self._tag

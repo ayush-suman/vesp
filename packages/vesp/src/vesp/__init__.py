@@ -12,10 +12,10 @@ from .visibility import Visibility
 
 from vespwood import (
     Block, File, Image, Structured, ToolCall,
-    Message, Prompt, Tag,
-    GeneratorClass, Generator,
-    Schematic, schema, Schema, tool, Tool, hook, Hook, ResponseHandler, interceptor, Interceptor, validator, Validator,
-    HookObject, HooksList, Params, PreparedArgs, Role, Saves, SchemaObject, SchemaInfo, ToolObject, ToolsList, ValidatorsList
+    Message, Tag,
+    GeneratorClass, Generator, Completor,
+    Schematic, schema, Schema, tool, Tool, hook, Hook, hooktool, HookTool, ResponseHandler, interceptor, Interceptor, validator, Validator,
+    HookObject, HooksList, Params, Role, Saves, SchemaObject, SchemaInfo, ToolObject, ToolsList, ValidatorsList
 )
 
 from .errors import (
@@ -54,18 +54,20 @@ __all__ = [
     "ToolCall",
 
     "Message",
-    "Prompt",
     
     "Tag",
     
     "hook",
     "Hook",
+    "hooktool",
+    "HookTool",
     "ResponseHandler",
     "interceptor",
     "Interceptor",
     
     "GeneratorClass",
     "Generator",
+    "Completor",
     
     "Schematic",
     "schema",

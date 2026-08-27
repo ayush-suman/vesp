@@ -1,20 +1,19 @@
 import inspect
-from typing import Any, get_type_hints, Generic, ParamSpec, TypeVar, Callable
+from typing import Any, get_type_hints
 from dataclasses import dataclass
 
 @dataclass
 class Param:
     name: str
     type: type
+    optional: bool = False
 
 
 def filter_params(callable_obj, skip_params: list[str], **args: dict[str, Any]) -> list[Param]:
-    target = getattr(callable_obj, '__call__', callable_obj)
-    sig = inspect.signature(target)
+    callable_obj = callable_obj if inspect.isfunction(callable_obj) or inspect.ismethod(callable_obj) else callable_obj.__call__
+    sig = inspect.signature(callable_obj)
     type_hints = get_type_hints(getattr)
-
     params = []
-
     for name, param in sig.parameters.items():
         if name in skip_params:
             continue
@@ -27,7 +26,7 @@ def filter_params(callable_obj, skip_params: list[str], **args: dict[str, Any]) 
             return params
 
         type = type_hints.get(name)
-        params.append(name, type)
+        params.append(Param(name, type, param.default is not inspect.Parameter.empty))
     return params
 
 

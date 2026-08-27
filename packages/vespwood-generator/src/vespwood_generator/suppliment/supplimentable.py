@@ -16,5 +16,5 @@ class Supplimentable:
     
     
     def suppliment(self, **kwargs) -> Supplimented:
-        return suppliment(self, skip_params=self.__class__.__skip_params__, **kwargs)
+        return suppliment(self, self.__class__.__skip_params__, **kwargs)
     

@@ -1,20 +1,24 @@
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Awaitable
 import inspect
-from typing import Protocol, TypeAlias, overload
+from typing import Protocol, TypeAlias, Callable, Awaitable, Any
+from vespwood.hook import Hook
+from vespwood_generator import Message
+from vespwood_generator.schematic.schema import Schema
+from vespwood_generator.schematic.tool import Tool
+from vespwood_generator.validator import Validator
 
 
 class OnResponse(Protocol):
-    def __call__(response: Response) -> None: ...
+    def __call__(response: Message) -> None: ...
 
 class AsyncOnResponse(Protocol):
-    async def __call__(response: Response) -> None: ...
+    async def __call__(response: Message) -> None: ...
 
 class ResponseHandler:
     def __init__(self, on_response: OnResponse | AsyncOnResponse):
         self.on_response = on_response
 
-    async def __call__(self, response: Response):
+    async def __call__(self, response: Message):
         if inspect.iscoroutinefunction(self.on_response):
             return await self.on_response(response)
         else:
@@ -28,8 +32,12 @@ class InterceptorFn(Protocol):
         session_id: str,
         messages: list[Message],
         args: dict[str, Any],
-        awaited_prompt: Prompt,
-        schema: Schema | None
+        schema: Schema | None = None, 
+        tools: list[Tool] = [],
+        hooks: list[Hook] = [],
+        validators: list[Validator] = [],
+        saves: dict[str, str] | None = None,
+        tag: str | None = None
     ) -> ResponseHandler | None: ...
 
 class AsyncInterceptorFn(Protocol):
@@ -37,8 +45,12 @@ class AsyncInterceptorFn(Protocol):
         session_id: str,
         messages: list[Message],
         args: dict[str, Any],
-        awaited_prompt: Prompt,
-        schema: Schema | None
+        schema: Schema | None = None, 
+        tools: list[Tool] = [],
+        hooks: list[Hook] = [],
+        validators: list[Validator] = [],
+        saves: dict[str, str] | None = None,
+        tag: str | None = None
     ) -> ResponseHandler | None: ...
 
 class Interceptor(ABC):
@@ -62,8 +74,12 @@ class Interceptor(ABC):
         session_id: str,
         messages: list[Message],
         args: dict[str, Any],
-        awaited_prompt: Prompt,
-        schema: Schema | None
+        schema: Schema | None = None, 
+        tools: list[Tool] = [],
+        hooks: list[Hook] = [],
+        validators: list[Validator] = [],
+        saves: dict[str, str] | None = None,
+        tag: str | None = None
     ) -> ResponseHandler | None | Awaitable[ResponseHandler | None]:
         ...
 
@@ -72,10 +88,14 @@ class Interceptor(ABC):
         session_id: str,
         messages: list[Message],
         args: dict[str, Any],
-        awaited_prompt: Prompt,
-        schema: Schema | None
+        schema: Schema | None = None, 
+        tools: list[Tool] = [],
+        hooks: list[Hook] = [],
+        validators: list[Validator] = [],
+        saves: dict[str, str] | None = None,
+        tag: str | None = None
     ) -> ResponseHandler | None:
-        on_response = self.intercept(session_id, messages, args, awaited_prompt)
+        on_response = self.intercept(session_id, messages, args, schema, tools, hooks, validators, saves, tag)
         if on_response is not None:
             if inspect.isawaitable(on_response):
                 on_response = await on_response
@@ -84,54 +104,39 @@ class Interceptor(ABC):
 
 def interceptor(func: InterceptorFn | AsyncInterceptorFn | None = None, *, name_session: NameSession | None = None) -> Interceptor:
     def wrapper(fn: InterceptorFn | AsyncInterceptorFn):
-        if inspect.iscoroutinefunction(fn):
-            class Wrapper(Interceptor):
-                def __init__(self):
-                    if name_session: self.name_session(name_session)
-                    super().__init__()
+        class Wrapper(Interceptor):
+            def __init__(self):
+                if name_session: self.name_session(name_session)
+                super().__init__()
 
-                async def intercept(
-                    self,
-                    session_id: str,
-                    messages: list[Message],
-                    args: dict[str, Any],
-                    awaited_prompt: Prompt,
-                    schema: Schema | None
-                ) -> ResponseHandler | None:
-                    return await fn( 
-                        session_id,
-                        messages,
-                        args,
-                        awaited_prompt,
-                        schema
-                    )
-
-        else:
-            class Wrapper(Interceptor):
-                def __init__(self):
-                    if name_session: self.name_session(name_session)
-                    super().__init__()
-
-                def intercept(
-                    self,
-                    session_id: str,
-                    messages: list[Message],
-                    args: dict[str, Any],
-                    awaited_prompt: Prompt,
-                    schema: Schema | None
-                ) -> ResponseHandler | None:
-                    return fn( 
-                        session_id,
-                        prompts,
-                        format_keys,
-                        awaited_prompt,
-                        schema
-                    )
-
+            def intercept(
+                self,
+                session_id: str,
+                messages: list[Message],
+                args: dict[str, Any],
+                schema: Schema | None = None, 
+                tools: list[Tool] = [],
+                hooks: list[Hook] = [],
+                validators: list[Validator] = [],
+                saves: dict[str, str] | None = None,
+                tag: str | None = None
+            ) -> ResponseHandler | None:
+                return fn( 
+                    session_id,
+                    messages,
+                    args,
+                    schema,
+                    tools,
+                    hooks,
+                    validators,
+                    saves,
+                    tag
+                )
         Wrapper.__name__ = func.__name__
         Wrapper.__qualname__ = func.__qualname__
         Wrapper.__module__ = func.__module__
         return Wrapper()
+
     if func: 
         return wrapper(func)
     return wrapper

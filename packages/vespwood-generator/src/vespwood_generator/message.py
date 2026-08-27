@@ -1,8 +1,15 @@
-from typing import Any
+from enum import Enum
+from typing import Any, Self
+import uuid
 from vespwood_generator.blocks import Block, Structured, ToolCall, Image, File
 from vespwood_generator.types import Role
 
 
+class AwaitedType(Enum):
+    REQUIRE_TOOL_RESULT = 1
+    REQUIRE_CONTENT = 2
+
+    
 class Message:
     __slots__ = "_role", "_content"
 
@@ -25,6 +32,7 @@ class Message:
     def content(self) -> list[Block]:
         return self._content
 
+
     def __iter__(self) -> list[Block]:
         return iter(self._content or [])
     
@@ -35,14 +43,6 @@ class Message:
     def extend(self, content: list[Block]):
         if self._content is None: self._content = []
         for block in content: self.append(block)
-
-    def update_content(self, content: Block | list[Block] | None):
-        if content is None:
-            self._content = None
-        elif isinstance(content, (str, Structured, ToolCall, Image, File)):
-            self._content = [content]
-        elif isinstance(content, list):
-            self._content = content
 
     def __getitem__(self, key):
         print(f"Message.__getitem__ called with key: {key}")
@@ -63,8 +63,8 @@ class Message:
     def get(self, key: str, default: Any = None):
         return self.__getitem__(key) or default
 
-    def indexed(self, idx: int) -> "Message":
-        self._id = self.id + f"#{idx}"
+    def indexed(self, idx: int) -> Self:
+        self._id = uuid.uuid5(self._id, str(idx))
         return self
         
     @property
@@ -79,7 +79,21 @@ class Message:
 
     def __repr__(self) -> str:
         data = { "role": self._role, "content": list(map(lambda block: block.json if isinstance(block, ToolCall) else block, self.content)) }
-        if self.is_tagged:
-            data.update({ "tag": self.tag })
         import json
         return json.dumps(data, indent=2)
+
+    @property
+    def is_awaited(self) -> bool:
+        if self._content is None or len(self._content) == 0:
+            return True
+        if any([(isinstance(block, ToolCall) and block.result is None) for block in self._content]):
+            return True
+        return False
+
+    @property
+    def awaited_type(self) -> AwaitedType | None:
+        if self._content is None or len(self._content) == 0:
+            return AwaitedType.REQUIRE_CONTENT
+        if any([(isinstance(block, ToolCall) and block.result is None) for block in self._content]):
+            return AwaitedType.REQUIRE_TOOL_RESULT
+        return None

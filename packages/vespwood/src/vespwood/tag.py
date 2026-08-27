@@ -21,5 +21,8 @@ class Tag(str):
             return int(parts[1])
         else:
             return None
+
+    def copy(self) -> Tag:
+        return Tag(self)
     
     

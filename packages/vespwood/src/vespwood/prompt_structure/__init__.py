@@ -1,3 +1,4 @@
+from .prompt_unit import PromptUnit
 from .prompt_structure import PromptStructure
 from .message_list import MessageList
 

@@ -1,11 +1,16 @@
+from __future__ import annotations
 from enum import Enum
+import enum
 import inspect
-from typing import Any, Callable, dataclass_transform, overload, Generic, TypeVar, get_type_hints
+import types
+import datetime as dt
+from typing import Any, Callable, Union, dataclass_transform, get_args, get_origin, overload, Generic, TypeVar, get_type_hints
 from vespwood_generator._utils import setup_init
 from vespwood_generator.schematic import Schematic
+from vespwood_generator.indexed_list import IndexedList
+
 
 T = TypeVar('T')
-
 class Schema(type[T], Schematic, Generic[T]):
     _name: str
     _description: str | None
@@ -40,15 +45,16 @@ class Schema(type[T], Schematic, Generic[T]):
         name: str,
         json_schema: dict[str, Any], 
         description: str | None = None, 
-        schemas: list["Schema"] = [], 
+        schemas: IndexedList["Schema", str] = IndexedList["Schema", str](key=lambda s: s.name), 
         decorate_with: Callable[[type[T]], type[T]] | None = None
     ):
         def fallback(js):
-            for s in schemas:
-                if s.name == js["type"]:
-                    s.__doc__ = js.get("description", s.__doc__)
-                    return s
-            raise KeyError(js["type"])
+            s = schemas.find(js["type"])
+            if s is None:
+                return KeyError(js["type"])
+
+            s.__doc__ = js.get("description", s.__doc__)
+            return s
         
         cls = None
 
@@ -123,7 +129,7 @@ class Schema(type[T], Schematic, Generic[T]):
 
 
     def load(cls, data: dict[str, Any]) -> T:
-        def load_values(type, payload: Any):
+        def load_values(tp, payload: Any):
             if tp is Any:
                 return payload
 
@@ -136,19 +142,19 @@ class Schema(type[T], Schematic, Generic[T]):
                         return None
                     for a in opts:
                         try:
-                            return build(a, payload)
+                            return load_values(a, payload)
                         except Exception:
                             pass
                     raise TypeError(f"no union member of {tp} fits {payload!r}")
                 if origin in (list, set, frozenset):
-                    return origin(build(args[0], v) for v in payload)
+                    return origin(load_values(args[0], v) for v in payload)
                 if origin is tuple:
                     if len(args) == 2 and args[1] is Ellipsis:
-                        return tuple(build(args[0], v) for v in payload)
-                    return tuple(build(a, v) for a, v in zip(args, payload))
+                        return tuple(load_values(args[0], v) for v in payload)
+                    return tuple(load_values(a, v) for a, v in zip(args, payload))
                 if origin is dict:
                     kt, vt = args
-                    return {build(kt, k): build(vt, v) for k, v in payload.items()}
+                    return {load_values(kt, k): load_values(vt, v) for k, v in payload.items()}
                 tp = origin          
 
             if inspect.isclass(tp):
@@ -163,15 +169,15 @@ class Schema(type[T], Schematic, Generic[T]):
                         raise TypeError(f"expected {tp.__name__}, got {payload!r}")
                     return payload
                 
-            signature = inspect.signature(type)
-            type_hints = get_type_hints(type, include_extras=True)
+            signature = inspect.signature(tp)
+            type_hints = get_type_hints(tp, include_extras=True)
 
             args = {}
             for name, _ in signature.parameters.items():
                 py_type = type_hints.get(name, str)
                 args[name] = load_values(py_type, payload[name])
 
-            return type(**args)
+            return tp(**args)
         
         return load_values(cls, data)
 

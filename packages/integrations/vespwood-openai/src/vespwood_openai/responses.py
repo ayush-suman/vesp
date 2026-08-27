@@ -97,7 +97,7 @@ class OpenAIResponsesGenerator(Generator):
             #     raise MaxTokenLimitError(assistant_response)
             
             # Tool Call
-            r = Message()
+            r = Message("assistant")
             for message in response.output:
                 if message.type == "message":
                     if schema:

@@ -4,14 +4,14 @@ import asyncio
 
 async def invoke_funcs(funcs: list[Callable[..., Any]], *args, **kwargs):
     results = []
-    tasks = []
+    awaitables = []
     for fn in funcs:
-        if inspect.iscoroutinefunction(fn):
-            tasks.append(asyncio.create_task(fn(*args, **kwargs)))
+        result = fn(*args, **kwargs)
+        if inspect.isawaitable(result):
+            awaitables.append(result)
         else:
-            result = fn(*args, **kwargs)
             results.append(result)
-    for awaitable in asyncio.as_completed(tasks):
+    for awaitable in asyncio.as_completed(awaitables):
         result = await awaitable
         results.append(result)
     return results

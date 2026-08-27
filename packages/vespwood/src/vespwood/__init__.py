@@ -11,23 +11,22 @@ from .errors import (
     ValidationError
 )
 
-from .prompt_structure import PromptStructure, MessageList
+from .prompt_structure import PromptStructure
 
-from .completor import Completor
+from .executors import Executor, Completor
 from .expression import Expression
 
 from .hook import hook, Hook
+from .tools.hook_tool import HookTool, hooktool
 from .interceptor import ResponseHandler, interceptor, Interceptor
 from .logic import Logic
 from .match import match
-from .prompt import Prompt
 from .prompt_mapping import PromptMapping
 from .tag import Tag
 
 from .types import (
     HookObject, HooksList, 
-    Params, 
-    PreparedArgs, 
+    Params,
     Saves, 
     SchemaObject, SchemaInfo, 
     ToolObject, ToolsList, 
@@ -64,13 +63,13 @@ __all__ = [
     "ValidationError",
     
     # Message & Prompt Structure
-    "Prompt",
     "Message",
     "PromptStructure",
-    "MessageList",
-    "Tag"
+    "FormattedPromptStructure",
+    "Tag",
 
     # Core
+    "Executor",
     "Completor",
     "GeneratorClass",
     "Generator",
@@ -93,6 +92,8 @@ __all__ = [
     # Hooks, Interceptors & Validators
     "hook",
     "Hook",
+    "hooktool",
+    "HookTool",
     "ResponseHandler",
     "interceptor",
     "Interceptor",
