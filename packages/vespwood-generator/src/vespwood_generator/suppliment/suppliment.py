@@ -1,4 +1,4 @@
-import types
+import inspect
 from typing import Any, Callable, ParamSpec, TypeVar
 
 from vespwood_generator._utils import filter_params
@@ -8,7 +8,9 @@ from vespwood_generator.suppliment.supplimented import Supplimented
 I = ParamSpec("I")
 O = TypeVar("O")
 def suppliment(callable_obj: Callable[I, O], skip_params: list[str] = [], /, **args: dict[str, Any]) -> Supplimented[O]:
-    params = filter_params(callable_obj, skip_params, **args)
+    sig = inspect.signature(callable_obj)
+    type_hints = inspect.signature(callable_obj)
+    params = filter_params(sig.parameters, type_hints, skip_params, **args)
     supplimented_args: dict[str, Any] = {}
     for param in params:
         if param.optional:

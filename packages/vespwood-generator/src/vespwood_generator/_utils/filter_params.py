@@ -9,12 +9,9 @@ class Param:
     optional: bool = False
 
 
-def filter_params(callable_obj, skip_params: list[str], **args: dict[str, Any]) -> list[Param]:
-    callable_obj = callable_obj if inspect.isfunction(callable_obj) or inspect.ismethod(callable_obj) else callable_obj.__call__
-    sig = inspect.signature(callable_obj)
-    type_hints = get_type_hints(getattr)
+def filter_params(parameters: dict[str, inspect.Parameter], type_hints: dict[str, Any], skip_params: list[str], **args: dict[str, Any]) -> list[Param]:
     params = []
-    for name, param in sig.parameters.items():
+    for name, param in parameters.items():
         if name in skip_params:
             continue
 

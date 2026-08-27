@@ -13,11 +13,16 @@ class AsyncValidatorFn(Protocol, Generic[I]):
     async def __call__(messages: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs):
         ...
 
-class Validator(Supplimentable["messages", "response"], ABC, Generic[I]):
+class Validator(ABC, Generic[I], Supplimentable["messages", "response"]):
     __slots__ = "_name", "_description"
 
     _name: str
     _description: str | None
+
+    def __init__(self, name: str, description: str | None = None):
+        self._name = name
+        self._description = description
+        if not self.params_inferred: self.infer_params_from(self.validate)
 
     @property
     def name(self):
@@ -39,32 +44,20 @@ class Validator(Supplimentable["messages", "response"], ABC, Generic[I]):
 
 def validator(func: ValidatorFn[I] | AsyncValidatorFn[I] | None = None, *, name: str | None = None, description: str | None = None):
     def wrapper(fn: ValidatorFn[I] | AsyncValidatorFn[I]) -> Validator[I]:
-        if inspect.iscoroutinefunction(fn):
-            class Wrapper(Validator[I]):
-                def __init__(self):
-                    self._name = name or fn.__name__
-                    self._description = description or fn.__doc__
-                    super().__init__()
+        class Wrapper(Validator[I]):
+            def __init__(self):
+                self.infer_params_from(fn)
+                super().__init__(
+                    name or fn.__name__, 
+                    description or fn.__doc__
+                )
 
-                async def validate(self, prompts: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs):
-                    return await fn(prompts, response, *args, **kwargs)
-        
-            Wrapper.__class__.__qualname__ = Validator.__class__.__qualname__
-            Wrapper.__class__.__name__ = Validator.__class__.__name__
-            return Wrapper()
-        else:
-            class Wrapper(Validator[I]):
-                def __init__(self):
-                    self._name = name or fn.__name__
-                    self._description = description or fn.__doc__
-                    super().__init__()
-
-                def validate(self, prompts: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs):
-                    return fn(prompts, response, *args, **kwargs)
-        
-            Wrapper.__class__.__qualname__ = Validator.__class__.__qualname__
-            Wrapper.__class__.__name__ = Validator.__class__.__name__
-            return Wrapper()
+            def validate(self, messages: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs) -> None | Awaitable[None]:
+                return fn(messages, response, *args, **kwargs)
+    
+        Wrapper.__class__.__qualname__ = Validator.__class__.__qualname__
+        Wrapper.__class__.__name__ = Validator.__class__.__name__
+        return Wrapper()
     
     wrapper.__qualname__ = func.__qualname__
     wrapper.__name__ = func.__name__
