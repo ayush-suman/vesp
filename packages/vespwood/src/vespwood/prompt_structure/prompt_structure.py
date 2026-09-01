@@ -560,11 +560,6 @@ class PromptStructure:
         return self._if is not None
 
 
-    @property
-    def normalized(self) -> PromptStructure:
-        return PromptStructure(self._id, name=self._name, prompt_list=list(self._prompt_list))
-
-
     def copy(self) -> PromptStructure:
         new_initial = self._initial.copy() if self.has_initial else None
         new_else = self._else.copy() if self._else else None
@@ -605,13 +600,17 @@ class PromptStructure:
     def indexed(self, idx: int) -> "PromptStructure":
         new_self = self.copy()
         new_self.prompt_list.clear()
-
+        new_self.else_list.clear()
+        new_self.cases.clear()
+        new_self.initial.clear()
         for prompt in self.prompt_list:
-            if isinstance(prompt, PromptStructure):
-                new_self.prompt_list.append(prompt.indexed(idx))
-            else:
-                prompt = prompt.indexed(idx)
-                new_self.prompt_list.append(prompt.copy())
+            new_self.prompt_list.append(prompt.indexed(idx))
+        for prompt in self.else_list:
+            new_self.else_list.append(prompt.indexed(idx))
+        for prompt in self.cases:
+            new_self.cases.append(prompt.indexed(idx))
+        for prompt in self.initial:
+            new_self.initial.append(prompt.indexed(idx))
         return new_self
 
     
@@ -627,14 +626,45 @@ class PromptStructure:
         if prompt_structure not in structures:
             structures.insert(prompt_structure)
 
-        msgs: list[Message] = []
-
         def get_from_format_key(key: str):
             f = format_keys
             key_parts = key.split(".")
             for part in key_parts:
                 f = f[part]
             return f
+
+        def indexed(prompt_list: list[PromptUnit | PromptStructure], idx: int) -> list[PromptUnit | PromptStructure]:
+            new_prompt_list = []
+            for prompt in prompt_list:
+                new_prompt_list.append(prompt.indexed(idx))
+            return new_prompt_list
+
+        def hydrate(prompt_list: list[PromptUnit | PromptStructure], format_keys: FormatKeys, message_id_map: dict[str, PromptUnit], structures: IndexedList[PromptStructure, str]) -> tuple[list[Message], FormatKeys, PromptUnit | None]:
+            msgs: list[Message] = []
+            for prompt in prompt_list:
+                if isinstance(prompt, str):
+                    prompt = structures.find(prompt)
+                    if prompt is None:
+                        raise MissingStructureError(prompt)
+                if isinstance(prompt, PromptStructure):
+                    prompts, format_keys, awaited_prompt = prompt.hydrate(format_keys, message_id_map=message_id_map, structures=structures)
+                    msgs.extend(prompts)
+                    if awaited_prompt: return msgs, format_keys, awaited_prompt
+                elif isinstance(prompt, PromptUnit):
+                    if prompt.params:
+                        mapping = format_keys.get_params(prompt.params)
+                        prompt = prompt.format_map(mapping)
+                    print("hydrating", prompt.id)    
+                    print(message_id_map)
+                    if prompt.id in message_id_map.keys():
+                        message = message_id_map[prompt.id]
+                        print("loading", message.content, "for", prompt.id)
+                        prompt.update_content(message.content)
+                    if prompt.is_awaited:
+                        return msgs, format_keys, prompt
+                    msgs.append(prompt)
+
+            return msgs, format_keys, None
 
         # Iterator
         if prompt_structure.is_iterator:
@@ -647,21 +677,23 @@ class PromptStructure:
             index_key = prompt_structure._index_key
 
             index = 0
-            structure = prompt_structure._initial if prompt_structure.has_initial else prompt_structure.normalized
-            structure = structure.indexed(index)
+            prompt_list = prompt_structure.initial if prompt_structure.has_initial else prompt_structure.prompt_list
+            prompt_list = indexed(prompt_list, index)
+
+            messages: list[Message] = []
 
             for value in iterator:
                 extra_keys = { iter_key : value, index_key: FormatInt(index) }
                 format_keys = format_keys.copy_with(extra_keys)
-                prompts, format_keys, awaited_prompt = structure.hydrate(format_keys, message_id_map=message_id_map, structures=structures)
-                msgs.extend(prompts)
+                prompts, format_keys, awaited_prompt = hydrate(prompt_list, format_keys, message_id_map=message_id_map, structures=structures)
+                messages.extend(prompts)
 
-                if awaited_prompt: return msgs, format_keys, awaited_prompt
+                if awaited_prompt: return messages, format_keys, awaited_prompt
 
                 index += 1
-                structure = prompt_structure.normalized.indexed(index)
+                prompt_list = indexed(prompt_list, index)
 
-            return msgs, format_keys, None
+            return messages, format_keys, None
 
         # Switch
         elif prompt_structure.is_switch:
@@ -672,9 +704,11 @@ class PromptStructure:
             for case in prompt_structure._cases:
                 if case.match(case_data, format_keys):
                     return case.hydrate(format_keys, message_id_map=message_id_map, structures=structures)
-            normalised_structure = prompt_structure.normalized
-            return normalised_structure.hydrate(format_keys, message_id_map=message_id_map, structures=structures)
-            
+            if prompt_structure.prompt_list:
+                return hydrate(prompt_structure.prompt_list, format_keys, message_id_map=message_id_map, structures=structures)
+            return [], format_keys, None
+
+
         # If
         elif prompt_structure.is_if:
             if prompt_structure._params:
@@ -682,10 +716,11 @@ class PromptStructure:
                 prompt_structure._if = prompt_structure._if.format_map(mapping)
             case_data = get_from_format_key(prompt_structure._if)
             if prompt_structure.match(case_data, format_keys):
-                return prompt_structure._then.get_usables(format_keys, message_id_map=message_id_map, structures=structures)
-            normalised_structure = prompt_structure.normalized
-            return normalised_structure.hydrate(format_keys, message_id_map=message_id_map, structures=structures)
-        
+                return hydrate(prompt_structure.prompt_list, format_keys, message_id_map=message_id_map, structures=structures)
+            if prompt_structure.else_list:
+                return hydrate(prompt_structure.else_list, format_keys, message_id_map=message_id_map, structures=structures)
+            return [], format_keys, None
+
         # While
         elif prompt_structure.is_while:
             if prompt_structure._params:
@@ -695,49 +730,31 @@ class PromptStructure:
             index_key = prompt_structure._index_key
 
             index = 0
-            structure = prompt_structure._initial if prompt_structure.has_initial else prompt_structure.normalized
-            structure = structure.indexed(index)
+            prompt_list = prompt_structure.initial if prompt_structure.has_initial else prompt_structure.prompt_list
+            prompt_list = indexed(prompt_list, index)
+            indexed_id = uuid.uuid5(prompt_structure._id, str(index))
 
-            while prompt_structure.match(case_data.extras.get(structure.id) or case_data.normalized, format_keys):
+            messages: list[Message] = []
+
+            while prompt_structure.match(case_data.extras.get(indexed_id) or case_data.normalized, format_keys):
                 extra_keys = { index_key: FormatInt(index) }
                 format_keys = format_keys.copy_with(extra_keys)
-                prompts, format_keys, awaited_prompt = structure.hydrate(format_keys, message_id_map=message_id_map, structures=structures)
-                msgs.extend(prompts)
+                prompts, format_keys, awaited_prompt = hydrate(prompt_list, format_keys, message_id_map=message_id_map, structures=structures)
+                messages.extend(prompts)
 
-                if not structure.id in case_data.extras:
-                    case_data.extras[structure.id] = case_data.normalized
+                if not indexed_id in case_data.extras:
+                    case_data.extras[indexed_id] = case_data.normalized
                 
-                if awaited_prompt: return msgs, format_keys, awaited_prompt
+                if awaited_prompt: return messages, format_keys, awaited_prompt
                 index += 1
-                structure = prompt_structure.normalized.indexed(index)
+                prompt_list = indexed(prompt_list, index)
+                indexed_id = uuid.uuid5(prompt_structure._id, str(index))
 
-            return msgs, format_keys, None
+            return messages, format_keys, None
 
         # Normal
-        for prompt in prompt_structure.prompt_list:
-            if isinstance(prompt, str):
-                prompt = structures.find(prompt)
-                if prompt is None:
-                    raise MissingStructureError(prompt)
-            if isinstance(prompt, PromptStructure):
-                prompts, format_keys, awaited_prompt = prompt.hydrate(format_keys, message_id_map=message_id_map, structures=structures)
-                msgs.extend(prompts)
-                if awaited_prompt: return msgs, format_keys, awaited_prompt
-            elif isinstance(prompt, PromptUnit):
-                if prompt.params:
-                    mapping = format_keys.get_params(prompt.params)
-                    prompt = prompt.format_map(mapping)
-                print("hydrating", prompt.id)    
-                print(message_id_map)
-                if prompt.id in message_id_map.keys():
-                    message = message_id_map[prompt.id]
-                    print("loading", message.content, "for", prompt.id)
-                    prompt.update_content(message.content)
-                if prompt.is_awaited:
-                    return msgs, format_keys, prompt
-                msgs.append(prompt)
-
-        return msgs, format_keys, None
+        return hydrate(prompt_structure.prompt_list, format_keys, message_id_map=message_id_map, structures=structures)
+    
 
     @property
     def json(self) -> dict:
