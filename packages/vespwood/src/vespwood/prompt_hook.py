@@ -14,20 +14,19 @@ from .hook import Hook
 I = ParamSpec("I")
 class PromptHook(Hook[I], Generic[I]):
     @overload
-    def __init__(self, structure: PromptStructure, output: list[str], name: str | None = None, description: str | None = None, schema: Schematic | None = None): ...
+    def __init__(self, structure: PromptStructure, output: list[str], name: str | None = None, description: str | None = None): ...
     @overload
-    def __init__(self, structure: PromptStructure, output: Callable[[dict[str, Any]], dict[str, Any]], name: str | None = None, description: str | None = None, schema: Schematic | None = None): ...
-    def __init__(self, structure: PromptStructure, output: list[str] | Callable[[dict[str, Any]], dict[str, Any]], name: str | None = None, description: str | None = None, schema: Schematic | None = None):
-        if schema is None and structure.schema is None:
-            name = name or structure.name
-            description = description or structure.description
-            raise MissingSchemaError(f"Schema for {name}")
-        super().__init__(name or structure.name, description or structure.description, schema or structure.schema)
+    def __init__(self, structure: PromptStructure, output: Callable[[dict[str, Any]], dict[str, Any]], name: str | None = None, description: str | None = None): ...
+    def __init__(self, structure: PromptStructure, output: list[str] | Callable[[dict[str, Any]], dict[str, Any]], name: str | None = None, description: str | None = None):
+        super().__init__(name or structure.name, description or structure.description)
         self._prompt_structure = structure
         if isinstance(output, list):
             self._output = lambda args: { key: value for key, value in args.items() if key in output }
         else:
             self._output = output 
+        self._executor: Executor | None = None
+        for param in self._prompt_structure.params:
+            self.add_param(param if isinstance(param, str) else param["name"], Any)
 
     @property
     def has_executor(self) -> bool:
@@ -40,6 +39,14 @@ class PromptHook(Hook[I], Generic[I]):
         new = self.copy()
         new.load_executor(executor)
         return new
+
+    def copy(self) -> "PromptHook[I]":
+        return PromptHook(
+            structure=self._prompt_structure,
+            output=self._output,
+            name=self.name,
+            description=self.description
+        )
 
     async def __call__(self, *args: I.args, **kwds: I.kwargs) -> dict[str, Any]:
         args = await self._executor.execute(self._prompt_structure, kwds)

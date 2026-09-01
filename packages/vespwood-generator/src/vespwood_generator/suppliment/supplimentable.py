@@ -26,15 +26,21 @@ class Supplimentable:
         self.__params__ = sig.parameters
         self.__type_hints__ = get_type_hints(fn)
 
+    def add_param(self, name: str, type: type, optional: bool = False):
+        if not hasattr(self, "__params__"):
+            self.__params__ = {}
+        if not hasattr(self, "__type_hints__"):
+            self.__type_hints__ = {}
+        self.__params__[name] = inspect.Parameter(name, inspect.Parameter.POSITIONAL_OR_KEYWORD, default=None if optional else inspect.Parameter.empty)
+        self.__type_hints__[name] = type
+
     @property
     def params_inferred(self) -> bool:
         return hasattr(self, "__parameters__") and hasattr(self, "__type_hints__")
     
     def suppliment(self, **kwargs) -> Supplimented:
         supplimented_args: dict[str, Any] = {}
-        print("skip", self.__skip_params__)
         params = filter_params(self.__params__, self.__type_hints__, self.__skip_params__, **kwargs)
-        print("params", params)
         for param in params:
             if param.optional:
                 if param.name in kwargs:

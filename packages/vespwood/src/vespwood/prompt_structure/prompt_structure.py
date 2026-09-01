@@ -6,6 +6,8 @@ from typing import Any, overload, TypeAlias
 from dataclasses import dataclass
 
 from vespwood.errors import MissingStructureError
+from vespwood_generator.schematic.schema import Schema
+from vespwood_generator.schematic.schematic import Schematic
 
 from .prompt_unit import PromptUnit
 
@@ -13,9 +15,7 @@ from vespwood_generator.indexed_list import IndexedList
 from ._format_object import FormatInt, FormatList, FormatKeys, to_format_object
 from vespwood_generator import Message
 
-from vespwood.tag import (
-    Tag
-)
+
 from vespwood.types import (
     Params,
     SchemasList, 
@@ -167,6 +167,7 @@ class PromptStructure:
         self._id = id
         self._name = name
         self._description = description
+
         self._schemas = schemas
         self._tools = tools
         self._hooks = hooks
@@ -446,7 +447,7 @@ class PromptStructure:
     @property
     def name(self) -> str:
         return self._name
-    
+
     
     @property
     def description(self) -> str | None:

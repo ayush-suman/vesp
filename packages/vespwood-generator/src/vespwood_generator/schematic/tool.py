@@ -16,16 +16,20 @@ class Tool(Schematic, Generic[I, O]):
 
     def copy(self) -> "Tool[I, O]":
         class CopiedTool(Tool[I, O]):
-            __call__ = self.__call__
             def __init__(inner_self):
-                super().__init__(self.name, self.description, self.schema)
+                super().__init__(self.name, self.description, Schematic.json_schema_to_type(self.schema))
+
+            def __call__(inner_self, *args: I.args, **kwargs: I.kwargs) -> O:
+                return self(*args, **kwargs)
         return CopiedTool()
 
     def copy_with(self, *, name: str | None = None, description: str | None = None, schema: Schematic | None) -> "Tool[I, O]": 
         class CopiedTool(Tool[I, O]):
-            __call__ = self.__call__
             def __init__(inner_self):
-                super().__init__(name or self.name, description or self.description, schema or self.schema)
+                super().__init__(name or self.name, description or self.description, Schematic.json_schema_to_type(schema or self.schema))
+
+            def __call__(inner_self, *args: I.args, **kwargs: I.kwargs) -> O:
+                return self(*args, **kwargs)
         return CopiedTool()
         
     @property
@@ -47,7 +51,14 @@ class Tool(Schematic, Generic[I, O]):
 def tool(func: Callable[I, O] | None = None, *, name: str | None = None, description: str | None = None) -> Tool:
     def wrapper(fn: Callable[I, O]):
         class WrapperTool(Tool[I, O]):
-            __call__ = fn
+            def __init__(self, name = None, description = None, schema = None):
+                self._name: str = name or fn.__name__
+                self._description: str | None = description or fn.__doc__
+                self._schema: dict[str, Any] = schema.schema if schema else Schematic.to_json_schema(fn)
+                
+
+            def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O:
+                return fn(*args, **kwargs)
             
         return WrapperTool(name=name or fn.__name__, description=description or fn.__doc__)
         

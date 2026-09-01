@@ -17,11 +17,7 @@ class PromptTool(Tool[I, Awaitable[O]], Generic[I, O]):
     @overload
     def __init__(self, structure: PromptStructure, output: Callable[[dict[str, Any]], O], name: str | None = None, description: str | None = None, schema: Schematic | None = None): ...
     def __init__(self, structure: PromptStructure, output: list[str] | Callable[[dict[str, Any]], O], name: str | None = None, description: str | None = None, schema: Schematic | None = None):
-        if schema is None and structure.schema is None:
-            name = name or structure.name
-            description = description or structure.description
-            raise MissingSchemaError(f"Schema for {name}")
-        super().__init__(name or structure.name, description or structure.description, schema or structure.schema)
+        super().__init__(name or structure.name, description or structure.description, schema)
         self._prompt_structure = structure
         if isinstance(output, list):
             self._output = lambda args: { key: value for key, value in args.items() if key in output }
@@ -40,6 +36,15 @@ class PromptTool(Tool[I, Awaitable[O]], Generic[I, O]):
         new = self.copy()
         new.load_executor(executor)
         return new
+
+    def copy(self) -> "PromptTool[I, O]":
+        return PromptTool(
+            structure=self._prompt_structure,
+            output=self._output,
+            name=self.name,
+            description=self.description,
+            schema=Schematic.json_schema_to_type(self.schema)
+        )
 
     async def __call__(self, *args: I.args, **kwds: I.kwargs) -> O:
         args = await self._executor.execute(self._prompt_structure, kwds)
