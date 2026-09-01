@@ -27,6 +27,7 @@ class PromptTool(Tool[I, Awaitable[O]], Generic[I, O]):
             self._output = lambda args: { key: value for key, value in args.items() if key in output }
         else:
             self._output = output 
+        self._executor: Executor | None = None
 
     @property
     def has_executor(self) -> bool:
