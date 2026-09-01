@@ -434,7 +434,7 @@ class PromptStructure:
             elif isinstance(structure, list):
                 return PromptStructure(
                     id, 
-                    PromptStructure.to_prompt_list(id, structure),
+                    prompt_list=PromptStructure.to_prompt_list(id, structure),
                     name=file_name.split("/")[-1].split(".")[0]
                 )
 
