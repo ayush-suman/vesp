@@ -64,6 +64,7 @@ class Message:
         return self.__getitem__(key) or default
 
     def indexed(self, idx: int) -> Self:
+        self = self.copy()
         self._id = uuid.uuid5(self._id, str(idx))
         return self
         
