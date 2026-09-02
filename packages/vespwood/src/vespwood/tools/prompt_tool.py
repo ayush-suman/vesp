@@ -6,7 +6,7 @@ from vespwood.errors.missing_schema_error import MissingSchemaError
 from vespwood.executors.executor import Executor
 from vespwood.prompt_structure.prompt_structure import PromptStructure
 from vespwood_generator import Tool
-from vespwood_generator.schematic.schematic import Schematic
+from vespwood_generator.schematic import Schematic, Schema
 
 
 I = ParamSpec("I")
@@ -43,7 +43,7 @@ class PromptTool(Tool[I, Awaitable[O]], Generic[I, O]):
             output=self._output,
             name=self.name,
             description=self.description,
-            schema=Schematic.json_schema_to_type(self.schema)
+            schema=Schema.from_json_schema(self.schema)
         )
 
     async def __call__(self, *args: I.args, **kwds: I.kwargs) -> O:

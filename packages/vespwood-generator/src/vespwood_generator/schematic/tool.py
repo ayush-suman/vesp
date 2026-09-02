@@ -1,6 +1,6 @@
 from typing import Callable, Any, TypeVar, ParamSpec, Generic, Awaitable
 from abc import abstractmethod
-from vespwood_generator.schematic import Schematic
+from vespwood_generator.schematic import Schematic, Schema
 
 
 I = ParamSpec('I')
@@ -17,7 +17,7 @@ class Tool(Schematic, Generic[I, O]):
     def copy(self) -> "Tool[I, O]":
         class CopiedTool(Tool[I, O]):
             def __init__(inner_self):
-                super().__init__(self.name, self.description, Schematic.json_schema_to_type(self.schema))
+                super().__init__(self.name, self.description, Schema.from_json_schema(self.schema))
 
             def __call__(inner_self, *args: I.args, **kwargs: I.kwargs) -> O:
                 return self(*args, **kwargs)
@@ -26,7 +26,7 @@ class Tool(Schematic, Generic[I, O]):
     def copy_with(self, *, name: str | None = None, description: str | None = None, schema: Schematic | None) -> "Tool[I, O]": 
         class CopiedTool(Tool[I, O]):
             def __init__(inner_self):
-                super().__init__(name or self.name, description or self.description, Schematic.json_schema_to_type(schema or self.schema))
+                super().__init__(name or self.name, description or self.description, Schema.from_json_schema(schema or self.schema))
 
             def __call__(inner_self, *args: I.args, **kwargs: I.kwargs) -> O:
                 return self(*args, **kwargs)

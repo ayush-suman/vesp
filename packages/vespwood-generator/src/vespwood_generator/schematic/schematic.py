@@ -168,7 +168,7 @@ class Schematic(ABC):
 
 
     @staticmethod
-    def json_schema_to_type(json_schema: dict[str, Any], fallback):
+    def json_schema_to_type(json_schema: dict[str, Any], fallback = None):
         doc: Doc | None = None
         if "description" in json_schema:
             doc = Doc(json_schema["description"])
@@ -212,6 +212,8 @@ class Schematic(ABC):
             )
             py_type = setup_init(py_type)
             return Annotated[py_type, doc] if doc else py_type
-        
-        return fallback(json_schema)
+
+        if fallback: return fallback(json_schema)
+
+        raise ValueError(f"Unknown json_schema type: {json_schema['type']} cannot be casted to python type without a fallback")
 
