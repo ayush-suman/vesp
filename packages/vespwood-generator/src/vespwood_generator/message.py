@@ -1,3 +1,4 @@
+from __future__ import annotations
 from enum import Enum
 from typing import Any, Self
 import uuid
@@ -63,6 +64,11 @@ class Message:
     def get(self, key: str, default: Any = None):
         return self.__getitem__(key) or default
 
+    def copy(self) -> Message:
+        new_message = Message(self._role)
+        new_message._content = [block.copy() for block in self._content]
+        return new_message
+
     def indexed(self, idx: int) -> Self:
         self = self.copy()
         self._id = uuid.uuid5(self._id, str(idx))
@@ -86,8 +92,10 @@ class Message:
     @property
     def is_awaited(self) -> bool:
         if self._content is None or len(self._content) == 0:
+            print("Content is None or empty")
             return True
         if any([(isinstance(block, ToolCall) and block.result is None) for block in self._content]):
+            print("Tool Call Result pending")
             return True
         return False
 

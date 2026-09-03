@@ -5,6 +5,7 @@ from vespwood_generator import (
     Message,
     IndexedList
 )
+from vespwood_generator.blocks.block import Block
 
 from ._format_object import FormatKeys, to_format_object
 from .prompt_unit import PromptUnit
@@ -13,7 +14,6 @@ from .prompt_structure import PromptStructure
 
 class MessageList(PromptStructure):
     _structures: IndexedList[PromptStructure, str]
-    _message_id_map: dict[str, PromptUnit] = {}
     _format_keys: FormatKeys
 
     @classmethod
@@ -55,14 +55,14 @@ class MessageList(PromptStructure):
     
 
     def get_messages(self) -> tuple[list[Message], dict[str, Any], PromptUnit | None]:
-        msgs, format_keys, awaited_prompt = self.hydrate(self._format_keys, message_id_map=self._message_id_map, structures=self._structures)
-        return msgs, format_keys.normalized, awaited_prompt
+        msgs, awaited_prompt = self.hydrate(self._format_keys, structures=self._structures)
+        return msgs, self._format_keys.normalized, awaited_prompt
 
 
-    def update_message(self, id: str, message: Message, *, args: dict[str, Any] = {}):
-        self._message_id_map[id] = message
+    def update_content(self, id: str, content: Block | list[Block], *, args: dict[str, Any] = {}):
+        content = content if isinstance(content, list) else [content]
         format_object = to_format_object(args)
-        self._format_keys.update(format_object)
+        self._format_keys.update(format_object, extras={ "content_" + id: content })
 
 
     def add_args(self, args: dict[str, Any]):
@@ -71,10 +71,10 @@ class MessageList(PromptStructure):
 
 
     def __repr__(self):
-        msgs, *_ = self.hydrate(self._format_keys, message_id_map=self._message_id_map, structures=self._structures)
+        msgs, *_ = self.hydrate(self._format_keys, structures=self._structures)
         return str(msgs)
     
 
     def __str__(self):
-        msgs, *_ = self.hydrate(self._format_keys, message_id_map=self._message_id_map, structures=self._structures)
+        msgs, *_ = self.hydrate(self._format_keys, structures=self._structures)
         return str(msgs)        

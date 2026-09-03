@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 class Image:
     __slots__ = "_id", "_url", "_data"
 
@@ -11,3 +13,6 @@ class Image:
         self._data = data
         if local:
             self._data = open(local, "rb").read()
+
+    def copy(self) -> Image:
+        return Image(id=self._id, url=self._url, data=self._data)

@@ -12,12 +12,12 @@ class Tool(Schematic, Generic[I, O]):
     def __init__(self, name: str | None = None, description: str | None = None, schema: Schematic | None = None):
         self._name: str = name or self.__class__.__name__
         self._description: str | None = description or self.__class__.__doc__
-        self._schema: dict[str, Any] = schema.schema if schema else Schematic.to_json_schema(self.__call__)
+        self._schema: Schematic = schema if schema else Schema.from_json_schema(name=self._name, description=None, json_schema=Schematic.to_json_schema(self.__call__))
 
     def copy(self) -> "Tool[I, O]":
         class CopiedTool(Tool[I, O]):
             def __init__(inner_self):
-                super().__init__(self.name, self.description, Schema.from_json_schema(self.schema))
+                super().__init__(self._name, self._description, self._schema)
 
             def __call__(inner_self, *args: I.args, **kwargs: I.kwargs) -> O:
                 return self(*args, **kwargs)
@@ -26,7 +26,7 @@ class Tool(Schematic, Generic[I, O]):
     def copy_with(self, *, name: str | None = None, description: str | None = None, schema: Schematic | None) -> "Tool[I, O]": 
         class CopiedTool(Tool[I, O]):
             def __init__(inner_self):
-                super().__init__(name or self.name, description or self.description, Schema.from_json_schema(schema or self.schema))
+                super().__init__(name or self._name, description or self._description, schema or self._schema)
 
             def __call__(inner_self, *args: I.args, **kwargs: I.kwargs) -> O:
                 return self(*args, **kwargs)
@@ -42,7 +42,7 @@ class Tool(Schematic, Generic[I, O]):
     
     @property
     def schema(self) -> dict[str, Any]:
-        return self._schema
+        return self._schema.schema
 
     @abstractmethod
     def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O: ...
@@ -52,10 +52,10 @@ def tool(func: Callable[I, O] | None = None, *, name: str | None = None, descrip
     def wrapper(fn: Callable[I, O]):
         class WrapperTool(Tool[I, O]):
             def __init__(self, name = None, description = None, schema = None):
-                self._name: str = name or fn.__name__
-                self._description: str | None = description or fn.__doc__
-                self._schema: dict[str, Any] = schema.schema if schema else Schematic.to_json_schema(fn)
-                
+                name: str = name or fn.__name__
+                description: str | None = description or fn.__doc__
+                schema: Schematic = schema if schema else Schema.from_json_schema(name=name, description=description, json_schema=Schematic.to_json_schema(fn))
+                super().__init__(name, description, schema)
 
             def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O:
                 return fn(*args, **kwargs)

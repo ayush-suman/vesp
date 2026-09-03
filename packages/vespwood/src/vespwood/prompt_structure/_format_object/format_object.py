@@ -20,9 +20,3 @@ class FormatObject(ABC):
     @abstractmethod
     def json(self) -> Any:
         ...
-
-    def __getitem__(self, key: str):
-        return self.extras.get(key)
-
-    def __setitem__(self, key: str, value: Any):
-        self.extras[key] = value

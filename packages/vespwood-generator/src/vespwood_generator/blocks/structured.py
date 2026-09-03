@@ -1,3 +1,4 @@
+from __future__ import annotations
 import json
 from typing import Any
 
@@ -27,3 +28,6 @@ class Structured(dict[str, Any]):
     
     def get(self, key: str, default: Any = None):
         return self.__getitem__(key) or default
+
+    def copy(self) -> Structured:
+        return Structured(dict(self))

@@ -281,8 +281,10 @@ class _Prompt(Message):
                     tool = tool.with_executor(executor)
                 # Tool Call
                 result = tool(**block.arguments)
+                
                 if result and inspect.isawaitable(result):
                     result = await result
+                print(f"Tool {tool.name} called with arguments: {block.arguments}, result: {result}")
                 block.add_result(result)
         return new_args
 

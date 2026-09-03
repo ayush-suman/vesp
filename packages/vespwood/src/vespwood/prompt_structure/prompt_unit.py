@@ -1,5 +1,6 @@
 from __future__ import annotations
 from enum import Enum
+from operator import index
 from typing import Self
 import uuid
 
@@ -97,15 +98,29 @@ class PromptUnit(Message):
 
     
     def update_content(self, content: Block | list[Block]):
-            if content is None:
-                self._content = None
-            elif isinstance(content, (str, Structured, ToolCall, Image, File)):
-                self._content = [content]
-            elif isinstance(content, list):
-                self._content = content
+        if content is None:
+            self._content = None
+        elif isinstance(content, (str, Structured, ToolCall, Image, File)):
+            self._content = [content]
+        elif isinstance(content, list):
+            self._content = content
+        print(f"Updated content for PromptUnit {self._id}: {self._content}")
+        
 
     def indexed(self, idx) -> Self:
-        self = super().indexed(idx)
+        indexed_msg = super().indexed(idx)
+        self = PromptUnit(
+            indexed_msg._id, 
+            role=indexed_msg._role, 
+            content=indexed_msg._content, 
+            params=self._params, 
+            schema=self._schema, 
+            tools=self._tools, 
+            hooks=self._hooks, 
+            validators=self._validators, 
+            saves=self._saves, 
+            tag=self._tag
+        )
         if self.is_tagged:
             self._tag = self._tag.indexed(idx)
         return self

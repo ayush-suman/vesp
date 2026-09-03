@@ -26,13 +26,17 @@ class FormatKeys(dict[str, FormatObject | None], FormatObject):
             if v is not None and not isinstance(v, FormatObject):
                 raise ValueError("All values must be instances of FormatObject")
             self.__setitem__(k, v)
-        self.__extras__ = extras
+        self.__extras__.update(extras)
 
 
-    def copy_with(self, extra_keys: dict[str, FormatObject | None]) -> "FormatKeys":
-        if not all(isinstance(v, FormatObject) for v in extra_keys.values() if v is not None):
-            raise ValueError("All extra keys must be instances of FormatObject")
-        return FormatKeys({**self, **extra_keys}, extras=self.extras)
+    # def copy(self) -> "FormatKeys":
+    #     return FormatKeys({k: v.copy() if v is not None else None for k, v in self.items()}, extras=self.extras)
+
+
+    # def copy_with(self, extra_keys: dict[str, FormatObject | None]) -> "FormatKeys":
+    #     if not all(isinstance(v, FormatObject) for v in extra_keys.values() if v is not None):
+    #         raise ValueError("All extra keys must be instances of FormatObject")
+    #     return FormatKeys({**self, **extra_keys}, extras=self.extras)
     
     
     @property
@@ -43,8 +47,8 @@ class FormatKeys(dict[str, FormatObject | None], FormatObject):
 
     def __getattr__(self, name):
         return self.__getitem__(name)
+        
     
-
     def __hasattr__(self, name):
         return self.__contains__(name)
     
@@ -57,7 +61,7 @@ class FormatKeys(dict[str, FormatObject | None], FormatObject):
             base_key, extra_key = key.split("?", 1)
             object = self if base_key == "" else self.__getitem__(base_key)
             if object is None: return None
-            return FormatObject.__getitem__(object, extra_key)
+            return object.extras.get(extra_key, None)
 
         # if "." in key:
         #     parts = key.split(".")
@@ -89,7 +93,7 @@ class FormatKeys(dict[str, FormatObject | None], FormatObject):
             object = self if base_key == "" else self.__getitem__(base_key)
             if object is None:
                 raise ValueError(f"To set {value} to {extra_key} at {base_key}, there should be some value present at {base_key}")
-            return FormatObject.__setitem__(object, extra_key, value)
+            return object.extras.__setitem__(extra_key, value)
         
         if value is not None and not isinstance(value, FormatObject):
             raise ValueError("Only instances of FormatObject can be assigned to FormatKeys")

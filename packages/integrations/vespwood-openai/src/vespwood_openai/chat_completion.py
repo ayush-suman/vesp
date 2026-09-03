@@ -38,21 +38,21 @@ def _openai_chat_completion_msg_converter(message: Message) -> list[dict[str, An
         elif isinstance(block, ToolCall):
             msgs.append({
                 "role": message.role,
-                "tool_calls": {
+                "tool_calls": [{
                     "id": block.id,
                     "type": "function",
                     "function": {
                         "name": block.name,
                         "arguments": json.dumps(block.arguments)
                     }
-                }
+                }]
             })
-            if block.result:
-                msgs.append({
-                    "role": "tool",
-                    "tool_call_id": block.id,
-                    "content": json.dumps(block.result)
-                })
+            msgs.append({
+                "role": "tool",
+                "tool_call_id": block.id,
+                "content": json.dumps(block.result)
+            })
+    print(msgs)
     return [*msgs]
 
 

@@ -109,7 +109,7 @@ class Completor(Executor):
 
     async def __complete__(self, name: str, description: str | None, prompt_structure: PromptStructure, args: dict[str, Any]) -> dict[str, Any]:
         inplace_schemas = []
-        for s in filter(lambda s: isinstance(s, dict), prompt_structure.schemas):
+        for s in filter(lambda s: isinstance(s, dict), prompt_structure.schemas or []):
             try:
                 inplace_schemas.append(Schema.from_json_schema(**s, schemas=self._schemas + inplace_schemas))
             except KeyError as e:
@@ -174,7 +174,8 @@ class Completor(Executor):
                     
                 new_args = await awaited_prompt.invoke(self, args)
 
-                message_list.update_message(awaited_prompt.id, response, args=new_args)
+                print("Updating content for ", awaited_prompt.id, response.content)
+                message_list.update_content(awaited_prompt.id, response.content, args=new_args)
 
                 messages, args, awaited_prompt = message_list.get_messages()
             except StopGeneration as e:

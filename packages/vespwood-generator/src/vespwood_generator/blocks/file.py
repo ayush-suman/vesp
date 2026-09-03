@@ -1,5 +1,5 @@
+from __future__ import annotations
 from pathlib import Path
-
 
 class File:
     __slots__ = "_id", "_url", "_filename", "_data"
@@ -16,3 +16,6 @@ class File:
         if local:
             self._filename = Path(local).name
             self._data = open(local, "rb").read()
+
+    def copy(self) -> File:
+        return File(id=self._id, filename=self._filename, url=self._url, data=self._data)

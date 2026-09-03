@@ -1,3 +1,4 @@
+from __future__ import annotations
 import copy
 import json
 from typing import Any
@@ -55,12 +56,12 @@ class ToolCall:
         return json.dumps(self.json, indent=2)
     
 
-    def copy(self):
+    def copy(self) -> ToolCall:
         return ToolCall(
             id=self.id,
             name=self.name,
             arguments=self._arguments.copy(),
-            output=copy(self.result) if self.result is not None else None
+            result=copy(self.result) if self.result is not None else None
         )
     
     def __copy__(self):

@@ -13,10 +13,10 @@ I = ParamSpec("I")
 O = TypeVar("O")
 class PromptTool(Tool[I, Awaitable[O]], Generic[I, O]):
     @overload
-    def __init__(self, structure: PromptStructure, output: list[str], name: str | None = None, description: str | None = None, schema: Schematic | None = None): ...
+    def __init__(self, structure: PromptStructure, schema: Schematic, output: list[str], name: str | None = None, description: str | None = None): ...
     @overload
-    def __init__(self, structure: PromptStructure, output: Callable[[dict[str, Any]], O], name: str | None = None, description: str | None = None, schema: Schematic | None = None): ...
-    def __init__(self, structure: PromptStructure, output: list[str] | Callable[[dict[str, Any]], O], name: str | None = None, description: str | None = None, schema: Schematic | None = None):
+    def __init__(self, structure: PromptStructure, schema: Schematic, output: Callable[[dict[str, Any]], O], name: str | None = None, description: str | None = None): ...
+    def __init__(self, structure: PromptStructure, schema: Schematic, output: list[str] | Callable[[dict[str, Any]], O], name: str | None = None, description: str | None = None):
         super().__init__(name or structure.name, description or structure.description, schema)
         self._prompt_structure = structure
         if isinstance(output, list):
@@ -40,18 +40,18 @@ class PromptTool(Tool[I, Awaitable[O]], Generic[I, O]):
     def copy(self) -> "PromptTool[I, O]":
         return PromptTool(
             structure=self._prompt_structure,
+            schema=self._schema,
             output=self._output,
-            name=self.name,
-            description=self.description,
-            schema=Schema.from_json_schema(self.schema)
+            name=self._name,
+            description=self._description
         )
 
     async def __call__(self, *args: I.args, **kwds: I.kwargs) -> O:
-        args = await self._executor.execute(self._prompt_structure, kwds)
+        args = await self._executor.execute(self._name, self._description, self._prompt_structure, kwds)
         return self._output(args)
 
 
-def prompttool(prompt_structure: PromptStructure | dict | list | str, *, name: str | None = None, description: str | None = None, schema: Schematic | None = None):
+def prompttool(prompt_structure: PromptStructure | dict | list | str, *, schema: Schematic, name: str | None = None, description: str | None = None):
     def to_prompt_structure(structure: PromptStructure | dict | list | str) -> PromptStructure:
         if isinstance(structure, PromptStructure):
             return structure

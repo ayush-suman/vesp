@@ -5,6 +5,6 @@ from vespwood.prompt_structure.prompt_structure import PromptStructure
 
 class Executor(ABC):
     @abstractmethod
-    async def execute(self, prompt_structure: PromptStructure, args: dict[str, Any]) -> dict[str, Any]:
+    async def execute(self,  name: str, description: str | None, prompt_structure: PromptStructure, args: dict[str, Any]) -> dict[str, Any]:
         ...
     
