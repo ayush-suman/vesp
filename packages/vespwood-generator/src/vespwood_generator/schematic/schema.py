@@ -4,7 +4,7 @@ import enum
 import inspect
 import types
 import datetime as dt
-from typing import Any, Callable, Union, dataclass_transform, get_args, get_origin, overload, Generic, TypeVar, get_type_hints
+from typing import Any, Callable, Union, dataclass_transform, get_args, get_origin, overload, Generic, TypeVar, get_type_hints, Annotated
 from vespwood_generator._utils import setup_init
 from vespwood_generator.schematic import Schematic
 from vespwood_generator.indexed_list import IndexedList
@@ -136,6 +136,8 @@ class Schema(type[T], Schematic, Generic[T]):
             origin = get_origin(tp)
             if origin is not None:
                 args = get_args(tp)
+                if origin is Annotated:
+                    return load_values(args[0], payload)
                 if origin in (Union, types.UnionType):
                     opts = [a for a in args if a is not type(None)]
                     if payload is None:
