@@ -30,10 +30,10 @@ from vespwood.types import (
     Saves
 )
 from vespwood_generator.blocks.structured import Structured
+from vespwood_generator.errors.stop_generation import StopGeneration
 
 class _Prompt(Message):
-    __slots__ = "_id", "_tag", "_schema", "_tools", "_hooks", "_validators", "_saves", "_hooks_args", "_tools_args"
-
+    __slots__ = "_id", "_tag", "_schema", "_tools", "_hooks", "_validators", "_saves", "_hooks_args", "_tools_args", "_errors"
     def __init__(self, 
         id: uuid.UUID,
         *,
@@ -56,6 +56,7 @@ class _Prompt(Message):
         self._tag: Tag = Tag(tag)
         self._hooks_args = {}
         self._tools_args = {}
+        self._errors = []
         super().__init__(role, content)
 
     @staticmethod
@@ -258,6 +259,14 @@ class _Prompt(Message):
     @property
     def is_tagged(self) -> bool:
         return self._tag
+
+    @property
+    def errors(self) -> list[Exception]:
+        return self._errors
+
+    @property
+    def stop_generation(self) -> bool:
+        return any(isinstance(e, StopGeneration) for e in self._errors)
     
 
     async def _invoke_hooks(self, executor: Executor, args: dict[str, Any]) -> dict[str, Any]:
@@ -293,10 +302,13 @@ class _Prompt(Message):
                 elif isinstance(tool, PromptTool) and not tool.has_executor:
                     tool = tool.with_executor(executor)
                 # Tool Call
-                result = tool(**combined_args)
-                if result and inspect.isawaitable(result):
-                    result = await result
-                block.add_result(result)
+                try:
+                    result = tool(**combined_args)
+                    if result and inspect.isawaitable(result):
+                        result = await result
+                    block.add_result(result)
+                except Exception as e:
+                    self._errors.append(e)
         return new_args
 
     @property

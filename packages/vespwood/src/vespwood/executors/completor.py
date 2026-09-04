@@ -173,6 +173,9 @@ class Completor(Executor):
                     awaited_prompt.update_content(response.content)
                     
                 new_args = await awaited_prompt.invoke(self, args)
+                if awaited_prompt.stop_generation:
+                    print("StopGeneration exception encountered. Stopping generation.")
+                    break
 
                 print("Updating content for ", awaited_prompt.id, response.content)
                 message_list.update_content(awaited_prompt.id, response.content, args=new_args)
