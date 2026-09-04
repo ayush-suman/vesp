@@ -32,7 +32,7 @@ from vespwood.types import (
 from vespwood_generator.blocks.structured import Structured
 
 class _Prompt(Message):
-    __slots__ = "_id", "_tag", "_schema", "_tools", "_hooks", "_validators", "_saves"
+    __slots__ = "_id", "_tag", "_schema", "_tools", "_hooks", "_validators", "_saves", "_hooks_args", "_tools_args"
 
     def __init__(self, 
         id: uuid.UUID,
@@ -54,6 +54,8 @@ class _Prompt(Message):
         self._validators: IndexedList[Validator, str] = validators
         self._saves: Saves | None = saves
         self._tag: Tag = Tag(tag)
+        self._hooks_args = {}
+        self._tools_args = {}
         super().__init__(role, content)
 
     @staticmethod
@@ -84,6 +86,7 @@ class _Prompt(Message):
                     raise MissingSchemaError(*e.args)
 
         _tools: IndexedList[Tool, str] = IndexedList[Tool, str](key=lambda t: t.name)
+        _tools_args = {}
         if prompt_unit.tools:
             _missing_tools = [] 
             for tool in prompt_unit.tools or []:
@@ -128,11 +131,14 @@ class _Prompt(Message):
                                 json_schema=tool["schema"]["json_schema"],
                                 schemas=schemas
                             ) if "schema" in tool else None)
+                    if "args" in tool:
+                        _tools_args[tool["name"]] = tool["args"]
                 _tools.insert(_tool)
             if _missing_tools:
                 raise MissingToolError(*_missing_tools)
 
         _hooks: IndexedList[Hook, str] = IndexedList[Hook, str](key=lambda h: h.name)
+        _hooks_args = {}
         if hooks:
             _missing_hooks = []
             for hook in prompt_unit.hooks or []:
@@ -168,6 +174,8 @@ class _Prompt(Message):
                         if _hook is None:
                             _missing_hooks.append(hook["name"])
                             continue
+                    if "args" in hook:
+                        _hooks_args[hook["name"]] = hook["args"]
                 _hooks.insert(_hook)
             if _missing_hooks:
                 raise MissingHookError(*_missing_hooks)
@@ -185,7 +193,7 @@ class _Prompt(Message):
             if _missing_validators:
                 raise MissingValidatorError(*_missing_validators)
         
-        return _Prompt(
+        self = _Prompt(
             uuid.UUID(prompt_unit.id), 
             role=prompt_unit.role, 
             content=prompt_unit.content, 
@@ -196,6 +204,9 @@ class _Prompt(Message):
             saves=prompt_unit.saves, 
             tag=prompt_unit.tag
         )
+        self._hooks_args = _hooks_args
+        self._tools_args = _tools_args
+        return self
     
 
     def copy(self) -> _Prompt:
@@ -254,7 +265,8 @@ class _Prompt(Message):
         for hook in self.hooks:
             if isinstance(hook, PromptHook) and not hook.has_executor:
                 hook = hook.with_executor(executor)
-            hook = hook.suppliment(**args)
+            combined_args = args | self._hooks_args.get(hook.name, {})
+            hook = hook.suppliment(**combined_args)
             returned_args = await hook(self)
             if returned_args: 
                 new_args.update(returned_args)
@@ -269,9 +281,10 @@ class _Prompt(Message):
                 tool = self._tools.find(block.name)
                 if tool is None:
                     raise MissingToolError(block.name)
+                combined_args = block.arguments | self._tools_args.get(tool.name, {})
                 # Calling Hook Part
                 if isinstance(tool, HookTool):
-                    merged_args = args | block.arguments
+                    merged_args = args | combined_args
                     hook = tool.hook.suppliment(**merged_args)
                     returned_args = await hook(self)
                     if returned_args:
@@ -280,11 +293,9 @@ class _Prompt(Message):
                 elif isinstance(tool, PromptTool) and not tool.has_executor:
                     tool = tool.with_executor(executor)
                 # Tool Call
-                result = tool(**block.arguments)
-                
+                result = tool(**combined_args)
                 if result and inspect.isawaitable(result):
                     result = await result
-                print(f"Tool {tool.name} called with arguments: {block.arguments}, result: {result}")
                 block.add_result(result)
         return new_args
 
