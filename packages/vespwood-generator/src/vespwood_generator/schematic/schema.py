@@ -127,7 +127,6 @@ class Schema(type[T], Schematic, Generic[T]):
     def __init__(cls, name, bases=(), ns={}, **kwargs):
         super().__init__(name, bases, ns, **kwargs)
 
-
     def load(cls, data: dict[str, Any]) -> T:
         def load_values(tp, payload: Any):
             if tp is Any:
@@ -139,10 +138,7 @@ class Schema(type[T], Schematic, Generic[T]):
                 if origin is Annotated:
                     return load_values(args[0], payload)
                 if origin in (Union, types.UnionType):
-                    opts = [a for a in args if a is not type(None)]
-                    if payload is None:
-                        return None
-                    for a in opts:
+                    for a in args:
                         try:
                             return load_values(a, payload)
                         except Exception:
@@ -177,7 +173,7 @@ class Schema(type[T], Schematic, Generic[T]):
             args = {}
             for name, _ in signature.parameters.items():
                 py_type = type_hints.get(name, str)
-                args[name] = load_values(py_type, payload[name])
+                args[name] = load_values(py_type, payload.get(name))
 
             return tp(**args)
         
