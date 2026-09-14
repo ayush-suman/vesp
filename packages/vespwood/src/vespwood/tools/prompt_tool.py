@@ -46,6 +46,15 @@ class PromptTool(Tool[I, Awaitable[O]], Generic[I, O]):
             description=self._description
         )
 
+    def copy_with(self, *, name = None, description = None, schema) -> "PromptTool[I, O]":
+        return PromptTool(
+            structure=self._prompt_structure,
+            schema=schema or self._schema,
+            output=self._output,
+            name=name or self._name,
+            description=description or self._description
+        )
+
     async def __call__(self, *args: I.args, **kwds: I.kwargs) -> O:
         args = await self._executor.execute(self._name, self._description, self._prompt_structure, kwds)
         return self._output(args)
