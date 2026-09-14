@@ -10,7 +10,7 @@ def format_map(fmt, mapping):
         out.append(literal)
         if field is None:
             continue
-        param = field.strip() if "." not in field else field.strip().split(".", 1)
+        param = field.strip() if "." not in field else field.strip().split(".", 1)[0]
         if param in mapping:
             obj = get_arg(mapping, field)
             if conv:
