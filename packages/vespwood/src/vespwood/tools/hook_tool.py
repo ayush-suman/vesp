@@ -1,5 +1,5 @@
 from typing import Any, Callable, Generic, ParamSpec, TypeVar
-from vespwood_generator import  Schematic, Tool
+from vespwood_generator import  Schematic, Tool, Schema
 from vespwood.hook import Hook
 
 
@@ -37,6 +37,12 @@ class HookTool(Tool[I, O], Generic[I, O, H]):
 def hooktool(hook: Hook[H], *, name: str | None = None, description: str | None = None, schema: Schematic | None = None):
     def wrapper(fn: Callable[I, O]):
         class WrapperTool(HookTool[I, O, H]):
+            def __init__(self, hook: Hook[H], name = None, description = None, schema = None):
+                name: str = name or fn.__name__
+                description: str | None = description or fn.__doc__
+                schema: Schematic = schema if schema else Schema.from_json_schema(name=name, description=description, json_schema=Schematic.to_json_schema(fn))
+                super().__init__(hook, name, description, schema)
+
             def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O:
                 return fn(*args, **kwargs)
 

@@ -63,16 +63,6 @@ class FormatKeys(dict[str, FormatObject | None], FormatObject):
             if object is None: return None
             return object.extras.get(extra_key, None)
 
-        # if "." in key:
-        #     parts = key.split(".")
-        #     value = self
-        #     for part in parts:
-        #         if hasattr(value, part):
-        #             value = getattr(value, part)
-        #         else:
-        #             return None
-        #     return value
-        
         if "#" in key:
             key, index = get_key_index(key)
             base = self.__getitem__(key)
@@ -97,15 +87,6 @@ class FormatKeys(dict[str, FormatObject | None], FormatObject):
         
         if value is not None and not isinstance(value, FormatObject):
             raise ValueError("Only instances of FormatObject can be assigned to FormatKeys")
-        
-        # if "." in key:
-        #     rest, last = key.rsplit(".", 1)
-        #     if self.__getitem__(rest):
-        #         base = self.__getitem__(rest)
-        #         base.__setitem__(last, value)
-        #     else:
-        #         self.__setitem__(rest, FormatKeys({last: value}))
-        #     return
 
         if "#" in key:
             key, index = get_key_index(key)

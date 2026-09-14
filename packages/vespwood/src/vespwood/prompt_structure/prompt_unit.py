@@ -1,9 +1,11 @@
 from __future__ import annotations
 from enum import Enum
 from operator import index
+import string
 from typing import Self
 import uuid
 
+from vespwood._utils import format_map
 from vespwood.tag import Tag
 from vespwood.types.hooks import HooksList
 from vespwood.types.params import Params
@@ -146,28 +148,29 @@ class PromptUnit(Message):
 
     
     def format_map(self, prompt_mapping) -> PromptUnit:
+        
         prompt = self.copy()
         if prompt._content: 
             content = []
             for block in prompt._content:
                 if isinstance(block, str):
-                    block = block.format_map(prompt_mapping)
+                    block = format_map(block, prompt_mapping)
                 content.append(block)
             prompt._content = content
         if prompt._hooks:
             hooks = []
             for hook in prompt._hooks:
                 if isinstance(hook, str):
-                    hooks.append(hook.format_map(prompt_mapping))
+                    hooks.append(format_map(hook, prompt_mapping))
                 else:
                     hook = {
-                        "name": hook["name"].format_map(prompt_mapping),
-                        "args": { k.format_map(prompt_mapping): v.format_map(prompt_mapping) for k, v in hook["args"].items() }
+                        "name": format_map(hook["name"], prompt_mapping),
+                        "args": { format_map(k, prompt_mapping): format_map(v, prompt_mapping) for k, v in hook["args"].items() }
                     }
                     hooks.append(hook)
             prompt._hooks = hooks
         if prompt._saves:
-            prompt._saves = { key.format_map(prompt_mapping): to.format_map(prompt_mapping) for key, to in prompt._saves.items() }
+            prompt._saves = { format_map(key, prompt_mapping): format_map(to, prompt_mapping) for key, to in prompt._saves.items() }
         return prompt
 
 

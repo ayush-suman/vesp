@@ -12,10 +12,10 @@ from vespwood_generator.schematic.schematic import Schematic
 from .prompt_unit import PromptUnit
 
 from vespwood_generator.indexed_list import IndexedList
-from ._format_object import FormatInt, FormatList, FormatKeys, to_format_object
+from ._format_object import FormatInt, FormatList, FormatKeys
 from vespwood_generator import Message
 
-
+from vespwood._utils import format_map
 from vespwood.types import (
     Params,
     SchemasList, 
@@ -201,7 +201,7 @@ class PromptStructure:
         if isinstance(self._match, str) or isinstance(self._match, Expression) or isinstance(self._match, Logic):
             if self._params:
                 mapping = format_keys.get_params(self._params)
-                self._match = self._match.format_map(mapping)
+                self._match = format_map(self._match, mapping)
         result = match(value, self._match)
         return result
     
@@ -673,7 +673,7 @@ class PromptStructure:
         if prompt_structure.is_iterator:
             if prompt_structure._params:
                 mapping = format_keys.get_params(prompt_structure._params)
-                prompt_structure._iterator = prompt_structure._iterator.format_map(mapping)
+                prompt_structure._iterator = format_map(prompt_structure._iterator, mapping)
            
             iterator: FormatList = get_from_format_key(prompt_structure._iterator)
 
@@ -700,7 +700,7 @@ class PromptStructure:
         elif prompt_structure.is_switch:
             if prompt_structure._params:
                 mapping = format_keys.get_params(prompt_structure._params)
-                prompt_structure._switch = prompt_structure._switch.format_map(mapping)
+                prompt_structure._switch = format_map(prompt_structure._switch, mapping)
             case_data = get_from_format_key(prompt_structure._switch)
             for case in prompt_structure._cases:
                 if case.match(case_data, format_keys):
@@ -714,7 +714,7 @@ class PromptStructure:
         elif prompt_structure.is_if:
             if prompt_structure._params:
                 mapping = format_keys.get_params(prompt_structure._params)
-                prompt_structure._if = prompt_structure._if.format_map(mapping)
+                prompt_structure._if = format_map(prompt_structure._if, mapping)
             case_data = get_from_format_key(prompt_structure._if)
             if prompt_structure.match(case_data, format_keys):
                 return hydrate(prompt_structure.prompt_list)
@@ -726,7 +726,7 @@ class PromptStructure:
         elif prompt_structure.is_while:
             if prompt_structure._params:
                 mapping = format_keys.get_params(prompt_structure._params)
-                prompt_structure._while = prompt_structure._while.format_map(mapping)
+                prompt_structure._while = format_map(prompt_structure._while, mapping)
             case_data = get_from_format_key(prompt_structure._while)
 
             index = 0
