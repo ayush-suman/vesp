@@ -15,7 +15,7 @@ from vespwood_generator.indexed_list import IndexedList
 from ._format_object import FormatInt, FormatList, FormatKeys
 from vespwood_generator import Message
 
-from vespwood._utils import format_map
+from vespwood._utils import format_map, get_arg
 from vespwood.types import (
     Params,
     SchemasList, 
@@ -629,15 +629,6 @@ class PromptStructure:
         if prompt_structure not in structures:
             structures.insert(prompt_structure)
 
-        def get_from_format_key(key: str):
-            f = format_keys
-            key_parts = key.split(".")
-            for part in key_parts:
-                f = f[part]
-                if f is None:
-                    return None
-            return f.normalized
-
         def indexed(prompt_list: list[PromptUnit | PromptStructure], idx: int) -> list[PromptUnit | PromptStructure]:
             new_prompt_list = []
             for prompt in prompt_list:
@@ -675,7 +666,7 @@ class PromptStructure:
                 mapping = format_keys.get_params(prompt_structure._params)
                 prompt_structure._iterator = format_map(prompt_structure._iterator, mapping)
            
-            iterator: FormatList = get_from_format_key(prompt_structure._iterator)
+            iterator: FormatList = get_arg(format_keys, prompt_structure._iterator)
 
             index = 0
             prompt_list = prompt_structure.initial if prompt_structure.has_initial else prompt_structure.prompt_list
@@ -701,7 +692,7 @@ class PromptStructure:
             if prompt_structure._params:
                 mapping = format_keys.get_params(prompt_structure._params)
                 prompt_structure._switch = format_map(prompt_structure._switch, mapping)
-            case_data = get_from_format_key(prompt_structure._switch)
+            case_data = get_arg(format_keys, prompt_structure._switch)
             for case in prompt_structure._cases:
                 if case.match(case_data, format_keys):
                     return hydrate(case.prompt_list)
@@ -715,7 +706,7 @@ class PromptStructure:
             if prompt_structure._params:
                 mapping = format_keys.get_params(prompt_structure._params)
                 prompt_structure._if = format_map(prompt_structure._if, mapping)
-            case_data = get_from_format_key(prompt_structure._if)
+            case_data = get_arg(format_keys, prompt_structure._if)
             if prompt_structure.match(case_data, format_keys):
                 return hydrate(prompt_structure.prompt_list)
             if prompt_structure.else_list:
@@ -727,7 +718,7 @@ class PromptStructure:
             if prompt_structure._params:
                 mapping = format_keys.get_params(prompt_structure._params)
                 prompt_structure._while = format_map(prompt_structure._while, mapping)
-            case_data = get_from_format_key(prompt_structure._while)
+            case_data = get_arg(format_keys, prompt_structure._while)
 
             index = 0
             prompt_list = prompt_structure.initial if prompt_structure.has_initial else prompt_structure.prompt_list
