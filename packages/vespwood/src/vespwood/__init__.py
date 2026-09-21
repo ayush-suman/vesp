@@ -18,7 +18,7 @@ from .expression import Expression
 
 from .hook import hook, Hook
 from .tools.hook_tool import HookTool, hooktool
-from .interceptor import ResponseHandler, interceptor, Interceptor
+from .interceptor import interceptor, Interceptor
 from .logic import Logic
 from .match import match
 from .prompt_mapping import PromptMapping

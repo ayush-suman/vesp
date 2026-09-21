@@ -1,7 +1,7 @@
 from typing import Any
 import uuid
 import asyncio
-from vespwood_generator.indexed_list import IndexedList
+from vespwood_generator.blocks.block import Block
 from vespwood.executors.executor import Executor
 from vespwood_generator import (
     Generator,
@@ -16,6 +16,7 @@ from vespwood.interceptor import Interceptor
 from vespwood.hook import Hook
 from vespwood.prompt_structure import MessageList, PromptStructure
 from vespwood.errors import MissingParamError, MissingSchemaError, MissingToolError, MissingHookError, MissingValidatorError, MissingStructureError
+from vespwood_generator.message import Message
 
 
 class Completor(Executor):
@@ -37,11 +38,11 @@ class Completor(Executor):
                 retry_with_delay: int = 0
             ):
 
-        self._schemas = IndexedList(schemas, key=lambda s: s.name)
-        self._tools = IndexedList(tools, key=lambda t: t.name)
-        self._hooks = IndexedList(hooks, key=lambda h: h.name)
-        self._validators = IndexedList(validators, key=lambda v: v.name)
-        self._structures = IndexedList(structures, key=lambda s: s.name)
+        self._schemas = schemas
+        self._tools = tools
+        self._hooks = hooks
+        self._validators = validators
+        self._structures = structures
         
         self._generator: Generator = generator
         self._interceptors: list[Interceptor] = interceptors
@@ -121,7 +122,7 @@ class Completor(Executor):
 
         session_id = uuid.uuid4().hex
         await invoke_funcs(
-            list(map(lambda i: i.bind_name_with_session, self._interceptors)),
+            list(map(lambda i: i.on_session_start_callback, self._interceptors)),
             session_id,
             name,
             description
@@ -145,10 +146,10 @@ class Completor(Executor):
                 )
 
                 if awaited_prompt.awaited_type == AwaitedType.REQUIRE_CONTENT:    
-                    
-                    on_response_callbacks = await invoke_funcs(
+                    await invoke_funcs(
                         self._interceptors,
                         session_id,
+                        awaited_prompt.id,
                         messages,
                         args, 
                         awaited_prompt.schema,
@@ -158,17 +159,25 @@ class Completor(Executor):
                         awaited_prompt.saves,
                         awaited_prompt.tag
                     )
+
+                    async def on_validation_error(res: Message, error_content: list[Block], validator: Validator):
+                        callbacks = list(map(lambda i: i.on_validation_error_callback, self._interceptors))
+                        await invoke_funcs(callbacks, session_id, awaited_prompt.id, validator, res, error_content)
+
                     response = await self._generator.get_response(
                         messages, 
                         args, 
                         awaited_prompt.schema, 
                         awaited_prompt.tools, 
                         awaited_prompt.validators, 
+                        on_validation_error,
                         self._continue_on_max_token, 
                         self._retry_on_rate_limit, 
                         self._retry_with_delay
                     )
-                    await invoke_funcs(list(filter(lambda c: c is not None, on_response_callbacks)), response)
+
+                    on_response_callbacks = list(map(lambda i: i.on_response_callback, self._interceptors))
+                    await invoke_funcs(on_response_callbacks, session_id, awaited_prompt.id, response)
 
                     awaited_prompt.update_content(response.content)
                     

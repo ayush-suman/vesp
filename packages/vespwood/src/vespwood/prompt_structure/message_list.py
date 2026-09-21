@@ -2,8 +2,7 @@ from typing import Any
 import uuid
 
 from vespwood_generator import (
-    Message,
-    IndexedList
+    Message
 )
 from vespwood_generator.blocks.block import Block
 
@@ -13,11 +12,11 @@ from .prompt_structure import PromptStructure
 
 
 class MessageList(PromptStructure):
-    _structures: IndexedList[PromptStructure, str]
+    _structures: list[PromptStructure]
     _format_keys: FormatKeys
 
     @classmethod
-    def from_prompt_structure(cls, prompt_structure: PromptStructure, *, args: dict[str, Any] = {}, structures: IndexedList[PromptStructure, str] = IndexedList(key=lambda s: s.name)) -> "MessageList":
+    def from_prompt_structure(cls, prompt_structure: PromptStructure, *, args: dict[str, Any] = {}, structures: list[PromptStructure] = []) -> "MessageList":
         self = cls(
             uuid.UUID(prompt_structure.id),
             prompt_list=prompt_structure.prompt_list,

@@ -3,33 +3,20 @@ import inspect
 from typing import Protocol, TypeAlias, Callable, Awaitable, Any
 from vespwood.hook import Hook
 from vespwood_generator import Message
+from vespwood_generator.blocks.block import Block
 from vespwood_generator.schematic.schema import Schema
 from vespwood_generator.schematic.tool import Tool
 from vespwood_generator.validator import Validator
 
 
-class OnResponse(Protocol):
-    def __call__(response: Message) -> None: ...
-
-class AsyncOnResponse(Protocol):
-    async def __call__(response: Message) -> None: ...
-
-class ResponseHandler:
-    def __init__(self, on_response: OnResponse | AsyncOnResponse):
-        self.on_response = on_response
-
-    async def __call__(self, response: Message):
-        if inspect.iscoroutinefunction(self.on_response):
-            return await self.on_response(response)
-        else:
-            return self.on_response(response)
-
-
-NameSession: TypeAlias = Callable[[str, str | None, str | None], None]
+OnSessionStart: TypeAlias = Callable[[str, str | None, str | None], None]
+OnResponse: TypeAlias = Callable[[str, str, Message], None]
+OnValidationError: TypeAlias = Callable[[str, str, Validator, Message, list[Block]], None]
 
 class InterceptorFn(Protocol):
     def __call__(
         session_id: str,
+        prompt_id: str,
         messages: list[Message],
         args: dict[str, Any],
         schema: Schema | None = None, 
@@ -38,11 +25,12 @@ class InterceptorFn(Protocol):
         validators: list[Validator] = [],
         saves: dict[str, str] | None = None,
         tag: str | None = None
-    ) -> ResponseHandler | None: ...
+    ) -> None: ...
 
 class AsyncInterceptorFn(Protocol):
     async def __call__(
         session_id: str,
+        prompt_id: str,
         messages: list[Message],
         args: dict[str, Any],
         schema: Schema | None = None, 
@@ -51,21 +39,47 @@ class AsyncInterceptorFn(Protocol):
         validators: list[Validator] = [],
         saves: dict[str, str] | None = None,
         tag: str | None = None
-    ) -> ResponseHandler | None: ...
+    ) -> None: ...
 
 class Interceptor(ABC):
-    __bind_name_with_session: NameSession | None = None
+    _on_session_start_callback: OnSessionStart | None = None
+    _on_validation_error_callback: OnValidationError | None = None
+    _on_response_callback: OnResponse | None = None
 
-    def name_session(self, function: NameSession):
-        self.__bind_name_with_session = function
+    def on_session_start(self, function: OnSessionStart):
+        self._on_session_start_callback = function
         return function
 
-    async def bind_name_with_session(self, id: str, name: str | None, description: str | None = None):
-        if func := self.__bind_name_with_session:
+    def on_response(self, function: OnResponse):
+        self._on_response_callback = function
+        return function
+
+    def on_validation_error(self, function: OnValidationError):
+        self._on_validation_error_callback = function
+        return function
+
+    async def on_session_start_callback(self, session_id: str, name: str | None, description: str | None = None):
+        if func := self._on_session_start_callback:
             if inspect.iscoroutinefunction(func):
-                await func(id, name, description)
+                await func(session_id, name, description)
             else: 
-                func(id, name, description)
+                func(session_id, name, description)
+
+
+    async def on_response_callback(self, session_id: str, prompt_id: str, response: Message):
+        if func := self._on_response_callback:
+            if inspect.iscoroutinefunction(func):
+                await func(session_id, prompt_id, response)
+            else: 
+                func(session_id, prompt_id, response)
+
+
+    async def on_validation_error_callback(self, session_id: str, prompt_id: str, validator: Validator, response: Message, error_content: list[Block]):
+        if func := self._on_validation_error_callback:
+            if inspect.iscoroutinefunction(func):
+                await func(session_id, prompt_id, validator, response, error_content)
+            else: 
+                func(session_id, prompt_id, validator, response, error_content)
             
    
     @abstractmethod
@@ -80,7 +94,7 @@ class Interceptor(ABC):
         validators: list[Validator] = [],
         saves: dict[str, str] | None = None,
         tag: str | None = None
-    ) -> ResponseHandler | None | Awaitable[ResponseHandler | None]:
+    ) -> Awaitable[None] | None:
         ...
 
     async def __call__(
@@ -94,24 +108,23 @@ class Interceptor(ABC):
         validators: list[Validator] = [],
         saves: dict[str, str] | None = None,
         tag: str | None = None
-    ) -> ResponseHandler | None:
-        on_response = self.intercept(session_id, messages, args, schema, tools, hooks, validators, saves, tag)
-        if on_response is not None:
-            if inspect.isawaitable(on_response):
-                on_response = await on_response
-            return ResponseHandler(on_response)
+    ) -> None:
+        result = self.intercept(session_id, messages, args, schema, tools, hooks, validators, saves, tag)
+        if inspect.isawaitable(result):
+            result = await result
         
 
-def interceptor(func: InterceptorFn | AsyncInterceptorFn | None = None, *, name_session: NameSession | None = None) -> Interceptor:
+def interceptor(func: InterceptorFn | AsyncInterceptorFn | None = None, *, name_session: OnSessionStart | None = None) -> Interceptor:
     def wrapper(fn: InterceptorFn | AsyncInterceptorFn):
         class Wrapper(Interceptor):
             def __init__(self):
-                if name_session: self.name_session(name_session)
+                if name_session: self.on_session_start(name_session)
                 super().__init__()
 
             def intercept(
                 self,
                 session_id: str,
+                prompt_id: str,
                 messages: list[Message],
                 args: dict[str, Any],
                 schema: Schema | None = None, 
@@ -120,9 +133,10 @@ def interceptor(func: InterceptorFn | AsyncInterceptorFn | None = None, *, name_
                 validators: list[Validator] = [],
                 saves: dict[str, str] | None = None,
                 tag: str | None = None
-            ) -> ResponseHandler | None:
+            ) -> Awaitable[None] | None:
                 return fn( 
                     session_id,
+                    prompt_id,
                     messages,
                     args,
                     schema,
