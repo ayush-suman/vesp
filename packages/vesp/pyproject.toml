@@ -15,6 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 yaml = [
+    "PyYAML",
     "vespwood[yaml]"
 ]
 

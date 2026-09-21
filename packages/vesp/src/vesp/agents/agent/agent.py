@@ -1,7 +1,7 @@
 import asyncio
 from pathlib import Path
 from urllib.parse import urlparse
-from typing import Any, ParamSpec, TypeVar, Generic
+from typing import Any, Callable, Concatenate, ParamSpec, Protocol, TypeVar, Generic, cast
 from abc import abstractmethod
 import uuid
 
@@ -22,17 +22,20 @@ import inspect
 from vespwood.prompt_structure.message_list import PromptStructure
 from vespwood_generator import suppliment
 
+
 I = ParamSpec("I")
 O = TypeVar("O")
 class Agent(BaseAgent[I, O], Generic[I, O]):
-    def __init__(self):
+    def __init__(self, *args, **kwargs):
         self._name = self.__class__.__name__
         self._description = self.__doc__
         super().__init__()
 
+
     @property
     def name(self) -> str:
         return self._name
+
     
     @property
     def description(self) -> str:
@@ -100,13 +103,6 @@ class LocalAgentMixin:
             if isinstance(structure, PromptStructure):
                 return structure
             elif isinstance(structure, str):
-                # Convert relative path to absolute path
-                caller_frame = inspect.stack()[1]
-                src_file = caller_frame.filename
-                path = Path(structure)
-                if not path.is_absolute() and not path.is_file():
-                    path = (Path(src_file).parent / path)
-                    structure = str(path)
                 return PromptStructure.load_from_file(uuid.uuid4(), structure)
             elif isinstance(structure, dict):
                 return PromptStructure.load_from_dict(uuid.uuid4(), structure)
@@ -144,23 +140,23 @@ class LocalAgentMixin:
         return await self._completor.execute(self._name, self._description, self._prompt_structure, args)
 
 
+
+P = ParamSpec("P")
 T = TypeVar("T", bound=Agent)
 def agent(
-        cls: type[T] | None = None, /, *,
-        name: str | None = None,
-        description: str | None = None,
-        prompt_structure: PromptStructure | dict | list | str, 
-        structures: list[PromptStructure | dict | list | str] = [],
-        schemas: list[Schema] = [],
-        tools: list[Tool] = [], 
-        hooks: list[Hook] = [],
-        validators: list[Validator] = [],
-        max_requests: int = 0, 
-        delay_constant: int = 0
-    ):
-    def decorator(cls: type[T]) -> type[T]:
-            
-        if not issubclass(cls, Agent):
+    prompt_structure: PromptStructure | dict | list | str, 
+    name: str | None = None,
+    description: str | None = None,
+    structures: list[PromptStructure | dict | list | str] = [],
+    schemas: list[Schema] = [],
+    tools: list[Tool] = [], 
+    hooks: list[Hook] = [],
+    validators: list[Validator] = [],
+    max_requests: int = 0, 
+    delay_constant: int = 0
+):
+    def decorator(cls: Callable[P, T]) -> Callable[Concatenate[GeneratorClass | Generator, P], T]:
+        if not issubclass(cls, Agent): 
             raise TypeError("agent decorator can only be used with subclass of Agent")
 
         src_file = inspect.getsourcefile(cls)
@@ -168,16 +164,27 @@ def agent(
 
         def modify_path(structure_path: str):
             _structure_path = urlparse(structure_path)
-            if _structure_path.scheme and _structure_path.scheme not in ("", "file"):
-                ...
-                # TODO: support remote files
+            if _structure_path.scheme and _structure_path.scheme in ("http", "https"):
+                import requests
+                response = requests.get(structure_path)
+                response.raise_for_status()
+                file_content = response.text
+                try:
+                    import json
+                    _structure_path = json.loads(file_content)
+                except:
+                    try:
+                        import yaml # type: ignore
+                        _structure_path = yaml.safe_load(file_content)
+                    except:
+                        raise ValueError("The content of the given url", structure_path, "can not be parsed into PromptStructure")
             else:
                 # Convert relative path to absolute path
                 path = Path(_structure_path.path)
                 if not path.is_absolute() and not path.is_file():
                     path = (Path(src_file).parent / path)
                     _structure_path = str(path)
-                return _structure_path
+            return _structure_path
             
         _prompt_structure = prompt_structure
         if isinstance(_prompt_structure, str):
@@ -191,7 +198,7 @@ def agent(
                 _structures.append(structure)
 
         class AgentWrapper(LocalAgentMixin, cls):
-            def __init__(self, generator: GeneratorClass | Generator, interceptors: list[Interceptor] = [], *args, **kwargs):
+            def __init__(self, generator: GeneratorClass | Generator, *args: P.args, interceptors: list[Interceptor] = [], **kwargs: P.kwargs):
                 try:
                     super().__init__(
                         name=name, 
@@ -212,13 +219,11 @@ def agent(
                 except FileNotFoundError as e:
                     e.add_note(f'File "{Path(src_file)}", line {src_line}, in {cls.__qualname__}')
                     raise 
-                
+        
         AgentWrapper.__name__ = cls.__name__
         AgentWrapper.__qualname__ = cls.__qualname__
         return AgentWrapper
     
-    if cls:
-        return decorator(cls)
     return decorator
 
 

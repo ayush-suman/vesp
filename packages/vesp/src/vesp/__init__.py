@@ -14,7 +14,7 @@ from vespwood import (
     Block, File, Image, Structured, ToolCall,
     Message, Tag,
     GeneratorClass, Generator, Completor,
-    Schematic, schema, Schema, tool, Tool, hook, Hook, hooktool, HookTool, ResponseHandler, interceptor, Interceptor, validator, Validator,
+    Schematic, schema, Schema, tool, Tool, hook, Hook, hooktool, HookTool, interceptor, Interceptor, validator, Validator,
     HookObject, HooksList, Params, Role, Saves, SchemaObject, SchemaInfo, ToolObject, ToolsList, ValidatorsList
 )
 

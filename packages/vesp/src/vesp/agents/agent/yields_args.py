@@ -9,7 +9,7 @@ from .agent import Agent
 I = ParamSpec("I")
 O = TypeVar("O")
 
-def yields_args(func: Callable[Concatenate[Agent[I, O], I], Generator[dict[str, Any], asyncio.Future, None]] | AsyncGenerator[dict[str, Any], asyncio.Task] | None = None) -> Callable[Concatenate[Agent[I, O], I], Invokation[O]]:
+def yields_args(func: Callable[Concatenate[Agent[I, O], I], Generator[dict[str, Any], asyncio.Future, None] | AsyncGenerator[dict[str, Any], asyncio.Task]]) -> Callable[Concatenate[Agent[I, O], I], Invokation[O]]:
     def fn(self: Agent[I, O], *args: I.args, **kwargs: I.kwargs) -> Invokation[O]:
         chain = Invokation()
         async def run():

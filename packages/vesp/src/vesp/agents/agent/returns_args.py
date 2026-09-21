@@ -19,7 +19,7 @@ from .agent import Agent
 
 I = ParamSpec("I")
 O = TypeVar("O")
-def returns_args(func: Callable[Concatenate[Agent[I, O], I], dict[str, Any] | Iterable[dict[str, Any]] | Awaitable[dict[str, Any] | Iterable[dict[str, Any]]]] | None = None)  -> Callable[Concatenate[Agent[I, O], I], Invokation[O]]:
+def returns_args(func: Callable[Concatenate[Agent[I, O], I], dict[str, Any] | Iterable[dict[str, Any]] | Awaitable[dict[str, Any] | Iterable[dict[str, Any]]]])  -> Callable[Concatenate[Agent[I, O], I], Invokation[O]]:
     def fn(self: Agent[I, O], *args: I.args, **kwargs: I.kwargs) -> Invokation[O]:
         chain = Invokation()
         async def run_with():
