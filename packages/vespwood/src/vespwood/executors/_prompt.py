@@ -1,5 +1,7 @@
 from __future__ import annotations
+import asyncio
 import inspect
+
 from typing import Any
 from enum import Enum
 import uuid
@@ -20,8 +22,7 @@ from vespwood_generator import (
     File, Image, ToolCall,
     Role,
     Block,
-    Schema, Tool, Validator,
-    IndexedList
+    Schema, Tool, Validator
 )
 from vespwood.tag import Tag
 from vespwood.hook import Hook
@@ -40,18 +41,18 @@ class _Prompt(Message):
         role: Role, 
         content: Block | list[Block] | None = None, 
         schema: Schema | None = None, 
-        tools: IndexedList[Tool, str] = [],
-        hooks: IndexedList[Hook, str] = [],
-        validators: IndexedList[Validator, str] = [],
+        tools: list[Tool] = [],
+        hooks: list[Hook] = [],
+        validators: list[Validator] = [],
         saves: Saves | None = None,
         tag: str | None = None
 
     ):
         self._id: uuid.UUID = id
         self._schema: Schema | None = schema
-        self._tools: IndexedList[Tool, str] = tools
-        self._hooks: IndexedList[Hook, str] = hooks
-        self._validators: IndexedList[Validator, str] = validators
+        self._tools: list[Tool] = tools
+        self._hooks: list[Hook] = hooks
+        self._validators: list[Validator] = validators
         self._saves: Saves | None = saves
         self._tag: Tag = Tag(tag)
         self._hooks_args = {}
@@ -63,16 +64,22 @@ class _Prompt(Message):
     def from_prompt_unit(
         prompt_unit: PromptUnit, 
         *, 
-        schemas: IndexedList[Schema, str] = IndexedList(key=lambda s: s.name), 
-        tools: IndexedList[Tool, str] = IndexedList(key=lambda s: s.name), 
-        hooks: IndexedList[Hook, str] = IndexedList(key=lambda s: s.name), 
-        validators: IndexedList[Validator, str] = IndexedList(key=lambda s: s.name),
-        structures: IndexedList[PromptStructure, str] = IndexedList(key=lambda s: s.name)
+        schemas: list[Schema] = [], 
+        tools: list[Tool] = [], 
+        hooks: list[Hook] = [], 
+        validators: list[Validator] = [],
+        structures: list[PromptStructure] = []
     ) -> _Prompt:
+        schemas = { s.name: s for s in schemas }
+        tools = { t.name: t for t in tools }
+        hooks = { h.name: h for h in hooks }
+        validators = { v.name: v for v in validators}
+        structures_map = { s.name: s for s in structures }
+        
         _schema: Schema | None = None
         if prompt_unit.schema:
             if isinstance(prompt_unit.schema, str):
-                _schema = schemas.find(prompt_unit.schema)
+                _schema = schemas[prompt_unit.schema]
                 if _schema is None:
                     raise MissingSchemaError(prompt_unit.schema)
             else:
@@ -86,14 +93,14 @@ class _Prompt(Message):
                 except KeyError as e:
                     raise MissingSchemaError(*e.args)
 
-        _tools: IndexedList[Tool, str] = IndexedList[Tool, str](key=lambda t: t.name)
+        _tools: list[Tool] = []
         _tools_args = {}
         if prompt_unit.tools:
             _missing_tools = [] 
             for tool in prompt_unit.tools or []:
                 _tool: Tool | None = None
                 if isinstance(tool, str):
-                    _tool = tools.find(tool)
+                    _tool = tools.get(tool)
                     if _tool is None:
                         _missing_tools.append(tool)
                         continue
@@ -101,7 +108,7 @@ class _Prompt(Message):
                     if "structure" in tool:
                         structure = None
                         if isinstance(tool["structure"], str):
-                            structure = structures.find(tool["structure"])  
+                            structure = structures_map.get(tool["structure"])
                             if structure is None:
                                 raise MissingStructureError(tool["structure"])
                         else:
@@ -120,7 +127,7 @@ class _Prompt(Message):
                             )
                         )
                     else:
-                        _tool = tools.find(tool["name"])
+                        _tool = tools.get(tool["name"])
                         if _tool is None:
                             _missing_tools.append(tool["name"])
                             continue
@@ -138,14 +145,14 @@ class _Prompt(Message):
             if _missing_tools:
                 raise MissingToolError(*_missing_tools)
 
-        _hooks: IndexedList[Hook, str] = IndexedList[Hook, str](key=lambda h: h.name)
+        _hooks: list[Hook] = []
         _hooks_args = {}
         if hooks:
             _missing_hooks = []
             for hook in prompt_unit.hooks or []:
                 _hook: Hook | None = None
                 if isinstance(hook, str):
-                    _hook = hooks.find(hook)
+                    _hook = hooks[hook]
                     if _hook is None:
                         _missing_hooks.append(hook)
                         continue
@@ -153,7 +160,7 @@ class _Prompt(Message):
                     if "structure" in hook:
                         structure = None
                         if isinstance(hook["structure"], str):
-                            structure = structures.find(hook["structure"]) 
+                            structure = structures.get(hook["structure"]) 
                             if structure is None:
                                 raise MissingStructureError(hook["structure"])
                         else:
@@ -171,7 +178,7 @@ class _Prompt(Message):
                             )
                         )
                     else:
-                        _hook = hooks.find(hook["name"])
+                        _hook = hooks.get(hook["name"])
                         if _hook is None:
                             _missing_hooks.append(hook["name"])
                             continue
@@ -181,12 +188,12 @@ class _Prompt(Message):
             if _missing_hooks:
                 raise MissingHookError(*_missing_hooks)
 
-        _validators: IndexedList[Validator, str] = IndexedList[Validator, str](key=lambda v: v.name)
+        _validators: list[Validator] = []
         if validators:
             _missing_validators = []
             for validator in prompt_unit.validators or []:
                 validator_name = validator if isinstance(validator, str) else validator["name"]
-                _validator = validators.find(validator_name)
+                _validator = validators.get(validator_name)
                 if _validator is None:
                     _missing_validators.append(validator_name)
                     continue
@@ -285,9 +292,13 @@ class _Prompt(Message):
 
     async def _invoke_tools(self, executor: Executor, args: dict[str, Any]) -> dict[str, Any]:
         new_args = {}
+        tasks = []
+        _tool_map = None
         for block in self:
             if isinstance(block, ToolCall) and block.result is None:
-                tool = self._tools.find(block.name)
+                # TODO: Decide whether to store tools as list or dict
+                _tool_map = _tool_map or { t.name: t for t in self._tools }
+                tool = _tool_map.get(block.name)
                 if tool is None:
                     raise MissingToolError(block.name)
                 combined_args = block.arguments | self._tools_args.get(tool.name, {})
@@ -305,10 +316,14 @@ class _Prompt(Message):
                 try:
                     result = tool(**combined_args)
                     if result and inspect.isawaitable(result):
-                        result = await result
-                    block.add_result(result)
+                        task = asyncio.create_task(result)
+                        task.add_done_callback(lambda t, b=block: b.add_result(t.result()))
+                        tasks.append(task)
+                    else:
+                        block.add_result(result)
                 except Exception as e:
                     self._errors.append(e)
+        await asyncio.gather(*tasks)
         return new_args
 
     @property
@@ -320,7 +335,7 @@ class _Prompt(Message):
                 new_args.update({ self.tag: payload })
             if self._saves:
                 for key in self._saves:
-                    
+
                     new_args.update({self._saves[key]: get_arg(payload, self._key)})
         return new_args
 

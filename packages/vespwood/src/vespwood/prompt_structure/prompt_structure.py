@@ -10,8 +10,6 @@ from vespwood_generator.schematic.schema import Schema
 from vespwood_generator.schematic.schematic import Schematic
 
 from .prompt_unit import PromptUnit
-
-from vespwood_generator.indexed_list import IndexedList
 from ._format_object import FormatInt, FormatList, FormatKeys
 from vespwood_generator import Message
 
@@ -622,12 +620,14 @@ class PromptStructure:
             self, 
             format_keys: FormatKeys, 
             *,
-            structures: IndexedList[PromptStructure, str] = IndexedList()
+            structures: list[PromptStructure] = []
     ) -> tuple[list[Message], PromptUnit | None]:
         prompt_structure = self.copy()
 
         if prompt_structure not in structures:
-            structures.insert(prompt_structure)
+            structures.append(prompt_structure)
+
+        structures = {s.name: s for s in structures}
 
         def indexed(prompt_list: list[PromptUnit | PromptStructure], idx: int) -> list[PromptUnit | PromptStructure]:
             new_prompt_list = []
@@ -639,7 +639,7 @@ class PromptStructure:
             msgs: list[Message] = []
             for prompt in prompt_list:
                 if isinstance(prompt, str):
-                    prompt = structures.find(prompt)
+                    prompt = structures[prompt]
                     if prompt is None:
                         raise MissingStructureError(prompt)
                 if isinstance(prompt, PromptStructure):

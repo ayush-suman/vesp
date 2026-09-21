@@ -15,7 +15,6 @@ from vespwood import (
     Hook,
     Tool,
     Completor,
-    Schematic,
     Validator
 )
 import inspect
@@ -64,7 +63,7 @@ class Agent(BaseAgent[I, O], Generic[I, O]):
     def __call__(self, *_: I.args, **kwargs: I.kwargs) -> Invokation[O]:
         chain = Invokation()
         async def run_with() -> O:
-            result = await self.invoke(**kwargs)
+            result = await self.invoke(kwargs)
             return await self.__get_output__(result, chain=chain)
         task = asyncio.create_task(run_with())
         task.add_done_callback(lambda _: chain.mark_completed())

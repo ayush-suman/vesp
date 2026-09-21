@@ -7,7 +7,6 @@ import datetime as dt
 from typing import Any, Callable, Union, dataclass_transform, get_args, get_origin, overload, Generic, TypeVar, get_type_hints, Annotated
 from vespwood_generator._utils import setup_init
 from vespwood_generator.schematic import Schematic
-from vespwood_generator.indexed_list import IndexedList
 
 
 T = TypeVar('T')
@@ -45,11 +44,13 @@ class Schema(type[T], Schematic, Generic[T]):
         name: str,
         json_schema: dict[str, Any], 
         description: str | None = None, 
-        schemas: IndexedList["Schema", str] = IndexedList["Schema", str](key=lambda s: s.name), 
+        schemas: list["Schema"] = [], 
         decorate_with: Callable[[type[T]], type[T]] | None = None
     ):
+        
         def fallback(js):
-            s = schemas.find(js["type"])
+            _schemas_map = { s.name: s for s in schemas }
+            s = _schemas_map.get(js["type"])
             if s is None:
                 return KeyError(js["type"])
 

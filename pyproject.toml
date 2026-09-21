@@ -15,3 +15,18 @@ vespwood-google = { workspace = true, editable = true }
 vespwood-anthropic = { workspace = true, editable = true }
 vespwood-faker = { workspace = true, editable = true }
 
+[tool.pytest.ini_options]
+pythonpath = [
+    "packages/vespwood-generator",
+    "packages/vespwood",
+    "packages/vesp",
+    "packages/integrations/vespwood-openai",
+    "packages/integrations/vespwood-google",
+    "packages/integrations/vespwood-anthropic",
+    "packages/integrations/vespwood-faker",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]

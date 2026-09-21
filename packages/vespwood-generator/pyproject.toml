@@ -15,5 +15,7 @@ dependencies = []
 Homepage = "https://vespwood.com"
 Repository = "https://github.com/ayush-suman/vesp.git"
 
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/vespwood_generator"]
+

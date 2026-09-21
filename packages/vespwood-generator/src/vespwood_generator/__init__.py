@@ -35,8 +35,6 @@ from .suppliment import (
     Supplimented
 )
 
-from .indexed_list import IndexedList
-
 from .validator import (
     Validator,
     validator

@@ -74,6 +74,6 @@ def prompthook(prompt_structure: PromptStructure | dict | list | str, *, name: s
                 structure,
                 name=id.hex,
             )
-    def wrapper(output_callback: Callable[[dict[str, Any]], O]):
+    def wrapper(output_callback: Callable[[dict[str, Any]], dict[str, Any]]):
         return PromptHook[...](structure=to_prompt_structure(prompt_structure), output=output_callback, name=name, description=description, schema=schema)
     return wrapper
