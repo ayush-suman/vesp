@@ -141,7 +141,7 @@ class _Prompt(Message):
                             ) if "schema" in tool else None)
                     if "args" in tool:
                         _tools_args[tool["name"]] = tool["args"]
-                _tools.insert(_tool)
+                _tools.append(_tool)
             if _missing_tools:
                 raise MissingToolError(*_missing_tools)
 
@@ -184,7 +184,7 @@ class _Prompt(Message):
                             continue
                     if "args" in hook:
                         _hooks_args[hook["name"]] = hook["args"]
-                _hooks.insert(_hook)
+                _hooks.append(_hook)
             if _missing_hooks:
                 raise MissingHookError(*_missing_hooks)
 
@@ -197,7 +197,7 @@ class _Prompt(Message):
                 if _validator is None:
                     _missing_validators.append(validator_name)
                     continue
-                _validators.insert(_validator)
+                _validators.append(_validator)
             if _missing_validators:
                 raise MissingValidatorError(*_missing_validators)
         
