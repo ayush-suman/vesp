@@ -620,14 +620,12 @@ class PromptStructure:
             self, 
             format_keys: FormatKeys, 
             *,
-            structures: list[PromptStructure] = []
+            structures: dict[str, PromptStructure] = {}
     ) -> tuple[list[Message], PromptUnit | None]:
         prompt_structure = self.copy()
 
         if prompt_structure not in structures:
-            structures.append(prompt_structure)
-
-        structures = {s.name: s for s in structures}
+            structures[prompt_structure.name] = prompt_structure
 
         def indexed(prompt_list: list[PromptUnit | PromptStructure], idx: int) -> list[PromptUnit | PromptStructure]:
             new_prompt_list = []
