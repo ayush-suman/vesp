@@ -218,7 +218,7 @@ def agent(
                     )                
                 except FileNotFoundError as e:
                     e.add_note(f'File "{Path(src_file)}", line {src_line}, in {cls.__qualname__}')
-                    raise 
+                    raise
         
         AgentWrapper.__name__ = cls.__name__
         AgentWrapper.__qualname__ = cls.__qualname__
