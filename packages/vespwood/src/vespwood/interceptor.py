@@ -86,6 +86,7 @@ class Interceptor(ABC):
     def intercept(
         self,
         session_id: str,
+        prompt_id: str,
         messages: list[Message],
         args: dict[str, Any],
         schema: Schema | None = None, 
@@ -100,6 +101,7 @@ class Interceptor(ABC):
     async def __call__(
         self,
         session_id: str,
+        prompt_id: str,
         messages: list[Message],
         args: dict[str, Any],
         schema: Schema | None = None, 
@@ -109,7 +111,7 @@ class Interceptor(ABC):
         saves: dict[str, str] | None = None,
         tag: str | None = None
     ) -> None:
-        result = self.intercept(session_id, messages, args, schema, tools, hooks, validators, saves, tag)
+        result = self.intercept(session_id, prompt_id, messages, args, schema, tools, hooks, validators, saves, tag)
         if inspect.isawaitable(result):
             result = await result
         
