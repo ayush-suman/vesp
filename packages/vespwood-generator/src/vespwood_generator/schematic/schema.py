@@ -128,33 +128,33 @@ class Schema(type[T], Schematic, Generic[T]):
     def __init__(cls, name, bases=(), ns={}, **kwargs):
         super().__init__(name, bases, ns, **kwargs)
 
+
     def load(cls, data: dict[str, Any]) -> T:
         def load_values(tp, payload: Any):
             if tp is Any:
                 return payload
 
-            origin = get_origin(tp)
-            if origin is not None:
-                args = get_args(tp)
-                if origin is Annotated:
-                    return load_values(args[0], payload)
-                if origin in (Union, types.UnionType):
-                    for a in args:
-                        try:
-                            return load_values(a, payload)
-                        except Exception:
-                            pass
-                    raise TypeError(f"no union member of {tp} fits {payload!r}")
-                if origin in (list, set, frozenset):
-                    return origin(load_values(args[0], v) for v in payload)
-                if origin is tuple:
-                    if len(args) == 2 and args[1] is Ellipsis:
-                        return tuple(load_values(args[0], v) for v in payload)
-                    return tuple(load_values(a, v) for a, v in zip(args, payload))
-                if origin is dict:
-                    kt, vt = args
-                    return {load_values(kt, k): load_values(vt, v) for k, v in payload.items()}
-                tp = origin          
+            origin = get_origin(tp) or tp
+            args = get_args(tp) or (Any)
+            
+            if origin is Annotated:
+                return load_values(args[0], payload)
+            if origin in (Union, types.UnionType):
+                for a in args:
+                    try:
+                        return load_values(a, payload)
+                    except Exception:
+                        pass
+                raise TypeError(f"no union member of {tp} fits {payload!r}")
+            if origin in (list, set, frozenset):
+                return origin(load_values(args[0], v) for v in payload)
+            if origin is tuple:
+                if len(args) == 2 and args[1] is Ellipsis:
+                    return tuple(load_values(args[0], v) for v in payload)
+                return tuple(load_values(a, v) for a, v in zip(args, payload))
+            if origin is dict:
+                kt, vt = args
+                return {load_values(kt, k): load_values(vt, v) for k, v in payload.items()}       
 
             if inspect.isclass(tp):
                 if tp is type(None):
@@ -163,10 +163,16 @@ class Schema(type[T], Schematic, Generic[T]):
                     return tp(payload)
                 if tp in (dt.datetime, dt.date, dt.time):
                     return tp.fromisoformat(payload)
-                if tp in (int, float, str, bool):
+                if issubclass(tp, (int, float, str, bool)):
                     if not isinstance(payload, tp):
                         raise TypeError(f"expected {tp.__name__}, got {payload!r}")
-                    return payload
+                    return tp(payload)
+            
+                bases = tp.__orig_bases__
+                valid_types = (list, set, frozenset, tuple, dict)
+                for b in bases:
+                    if b in valid_types or get_origin(b) in valid_types:
+                        return tp(load_values(b, payload))
                 
             signature = inspect.signature(tp)
             type_hints = get_type_hints(tp, include_extras=True)

@@ -951,11 +951,13 @@ openai = [
     { name = "vespwood-openai" },
 ]
 yaml = [
+    { name = "pyyaml" },
     { name = "vespwood", extra = ["yaml"] },
 ]
 
 [package.metadata]
 requires-dist = [
+    { name = "pyyaml", marker = "extra == 'yaml'" },
     { name = "vespwood", editable = "packages/vespwood" },
     { name = "vespwood", extras = ["yaml"], marker = "extra == 'yaml'", editable = "packages/vespwood" },
     { name = "vespwood-anthropic", marker = "extra == 'anthropic'", editable = "packages/integrations/vespwood-anthropic" },
