@@ -330,7 +330,8 @@ class _Prompt(Message):
     def _saved_args(self) -> dict[str, Any]:
         new_args = {}
         if self.schema:
-            payload = self.schema.load(list(filter(lambda b: isinstance(b, dict), self.content))[0])
+            print(self.content)
+            payload = self.schema.load(list(filter(lambda b: isinstance(b, Structured), self.content))[0])
             if self.is_tagged:
                 new_args.update({ self.tag: payload })
             if self._saves:
@@ -339,10 +340,14 @@ class _Prompt(Message):
         return new_args
 
     def update_content(self, content: Block | list[Block]):
+        print("Updating content", content)
+
         if content is None:
             self._content = None
         elif isinstance(content, (str, Structured, ToolCall, Image, File)):
+            print("Content Updated")
             self._content = [content]
+            print(self._content, self.content)
         elif isinstance(content, list):
             self._content = content
             

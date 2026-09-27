@@ -106,7 +106,6 @@ class PromptUnit(Message):
             self._content = [content]
         elif isinstance(content, list):
             self._content = content
-        print(f"Updated content for PromptUnit {self._id}: {self._content}")
         
 
     def indexed(self, idx) -> Self:
@@ -148,7 +147,6 @@ class PromptUnit(Message):
 
     
     def format_map(self, prompt_mapping) -> PromptUnit:
-        
         prompt = self.copy()
         if prompt._content: 
             content = []

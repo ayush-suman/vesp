@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Any, Literal
+from vespwood._utils import format_map
 from vespwood.expression import Expression
 
 
@@ -28,7 +29,9 @@ class Logic:
     def format_map(self, mapping):
         _exprs = []
         for expr in self.exprs:
-            if isinstance(expr, str) or isinstance(expr, Expression) or isinstance(expr, Logic):
+            if isinstance(expr, str):
+                _exprs.append(format_map(expr, mapping))
+            elif isinstance(expr, Expression) or isinstance(expr, Logic):
                 _exprs.append(expr.format_map(mapping))
             else:
                 _exprs.append(expr)

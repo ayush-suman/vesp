@@ -1,6 +1,7 @@
 from typing import Any
 
 def get_arg(object, key: str) -> Any:
+    key = key.strip(".")
     if "." in key:
         attr, key = key.split(".", maxsplit=1)
         if isinstance(object, list):

@@ -45,25 +45,6 @@ class Message:
         if self._content is None: self._content = []
         for block in content: self.append(block)
 
-    def __getitem__(self, key):
-        print(f"Message.__getitem__ called with key: {key}")
-        for block in self.content:
-            print("block of type:", type(block))
-            if isinstance(block, Structured): 
-                print(f"Checking block: {block}")
-                return block[key]
-            else: 
-                return None
-
-    def __setitem__(self, *_):
-        raise NotImplementedError("Setting values to Message is not supported")
-    
-    def update(self, _):
-        raise NotImplementedError("Setting values to Message is not supported")
-    
-    def get(self, key: str, default: Any = None):
-        return self.__getitem__(key) or default
-
     def copy(self) -> Message:
         new_message = Message(self._role)
         new_message._content = [block.copy() for block in self._content]
@@ -78,6 +59,13 @@ class Message:
     def json(self):
         data = { "role": self.role, "content": self.content }
         return data
+
+    @property
+    def structured(self) -> Structured:
+        for block in self:
+            if isinstance(block, Structured):
+                return block
+        raise ValueError("This response does not have any structured response")
 
     def __str__(self) -> str:
         data = self.json

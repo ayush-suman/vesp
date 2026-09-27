@@ -1,0 +1,38 @@
+{
+  "schemas": [
+    {
+      "name": "change_review_schema",
+      "json_schema": {
+        "type": "object",
+        "properties": {
+          "analysis": {
+            "type": "string"
+          },
+          "change_required": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  ],
+  "structure": [
+    {
+      "while": "change_required",
+      "structure": [
+        {
+          "user": "Pass"
+        },
+        {
+          "assistant": null,
+          "schema": "change_review_schema",
+          "saves": {
+            ".change_required": "change_required"
+          }
+        }
+      ]
+    },
+    {
+      "system": "Fail"
+    }
+  ]
+}

@@ -131,6 +131,7 @@ class Schema(type[T], Schematic, Generic[T]):
 
     def load(cls, data: dict[str, Any]) -> T:
         def load_values(tp, payload: Any):
+            print(tp, payload)
             if tp is Any:
                 return payload
 
@@ -180,6 +181,7 @@ class Schema(type[T], Schematic, Generic[T]):
             args = {}
             for name, _ in signature.parameters.items():
                 py_type = type_hints.get(name, str)
+                print(payload, name, payload.get(name))
                 args[name] = load_values(py_type, payload.get(name))
 
             return tp(**args)

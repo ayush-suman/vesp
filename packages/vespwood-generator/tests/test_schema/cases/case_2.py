@@ -39,7 +39,7 @@ expected_json_schema = {
     "additionalProperties": False
 }
 
-load_value = { "analysis": "abc", "change_required": True }
+load_value = { "analysis": "abc", "change_required": False }
 
 
-asserts = { "change_required": True }
+asserts = { "change_required": False }

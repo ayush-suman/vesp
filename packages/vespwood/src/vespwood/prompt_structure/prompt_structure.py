@@ -196,10 +196,12 @@ class PromptStructure:
 
 
     def match(self, value: Any, format_keys: FormatKeys) -> bool:
-        if isinstance(self._match, str) or isinstance(self._match, Expression) or isinstance(self._match, Logic):
-            if self._params:
-                mapping = format_keys.get_params(self._params)
+        if self._params:
+            mapping = format_keys.get_params(self._params)
+            if isinstance(self._match, str):
                 self._match = format_map(self._match, mapping)
+            elif isinstance(self._match, Expression) or isinstance(self._match, Logic):
+                self._match = self._match.format_map(mapping)
         result = match(value, self._match)
         return result
     

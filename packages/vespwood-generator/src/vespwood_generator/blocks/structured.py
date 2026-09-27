@@ -27,7 +27,8 @@ class Structured(dict[str, Any]):
     
     
     def get(self, key: str, default: Any = None):
-        return self.__getitem__(key) or default
+        value = self.__getitem__(key)
+        return value if value is not None else default
 
     def copy(self) -> Structured:
         return Structured(dict(self))

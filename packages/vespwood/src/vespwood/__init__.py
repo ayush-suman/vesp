@@ -11,7 +11,7 @@ from .errors import (
     ValidationError
 )
 
-from .prompt_structure import PromptStructure
+from .prompt_structure import PromptStructure, MessageList
 
 from .executors import Executor, Completor
 from .expression import Expression
@@ -65,7 +65,7 @@ __all__ = [
     # Message & Prompt Structure
     "Message",
     "PromptStructure",
-    "FormattedPromptStructure",
+    "MessageList",
     "Tag",
 
     # Core

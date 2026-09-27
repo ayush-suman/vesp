@@ -1,6 +1,8 @@
 from __future__ import annotations
 import re
 
+from vespwood._utils import format_map
+
 class Expression:
     __slots__ = "_op", "_val",
 
@@ -13,7 +15,6 @@ class Expression:
         op, val = re.split(r"\s+", expr)
         return cls(op, val)
 
-
     @property
     def op(self):
         return self._op
@@ -23,7 +24,7 @@ class Expression:
         return self._val
     
     def format_map(self, mapping):
-        _val = self._val.format_map(mapping)
+        _val = format_map(self._val, mapping)
         return Expression(self.op, _val)
 
     def __str__(self):
