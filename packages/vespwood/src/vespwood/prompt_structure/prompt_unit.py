@@ -6,6 +6,7 @@ from typing import Self
 import uuid
 
 from vespwood._utils import format_map
+from vespwood.prompt_structure._format_object.format_keys import FormatKeys
 from vespwood.tag import Tag
 from vespwood.types.hooks import HooksList
 from vespwood.types.params import Params
@@ -146,8 +147,9 @@ class PromptUnit(Message):
         return self.copy()
 
     
-    def format_map(self, prompt_mapping) -> PromptUnit:
+    def hydrate(self, format_keys: FormatKeys) -> PromptUnit:
         prompt = self.copy()
+        prompt_mapping = format_keys.get_params(self._params or [])
         if prompt._content: 
             content = []
             for block in prompt._content:

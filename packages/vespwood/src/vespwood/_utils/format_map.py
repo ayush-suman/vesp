@@ -1,9 +1,8 @@
 import string
-
 from .get_arg import get_arg
 
 
-def format_map(fmt, mapping):
+def format_map(fmt, mapping) -> str:
     f = string.Formatter()
     out = []
     for literal, field, spec, conv in f.parse(fmt):

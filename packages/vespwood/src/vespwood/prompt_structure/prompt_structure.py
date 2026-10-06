@@ -6,14 +6,13 @@ from typing import Any, overload, TypeAlias
 from dataclasses import dataclass
 
 from vespwood.errors import MissingStructureError
-from vespwood_generator.schematic.schema import Schema
-from vespwood_generator.schematic.schematic import Schematic
+from vespwood.matchables.mstring import MString
 
 from .prompt_unit import PromptUnit
 from ._format_object import FormatInt, FormatList, FormatKeys
 from vespwood_generator import Message
 
-from vespwood._utils import format_map, get_arg
+from vespwood._utils import format_map, get_arg, parse_bool
 from vespwood.types import (
     Params,
     SchemasList, 
@@ -22,10 +21,8 @@ from vespwood.types import (
     ValidatorsList,
     StructuresList
 )
-from vespwood.parse_expr import parse_exprs, parse_dict
-from vespwood.match import match
-from vespwood.expression import Expression
-from vespwood.logic import Logic
+from vespwood.matchables.expression import Expression
+from vespwood.matchables.logic import Logic
 
 
 PromptStructureDataUnit: TypeAlias = dict[str, Any]
@@ -184,26 +181,37 @@ class PromptStructure:
         self._else = else_list
 
         if isinstance(match, str):
-            match = parse_exprs(match)
-        elif isinstance(match, dict):
-            match = parse_dict(match)
-        self._match: str | int | bool | Logic | Expression = match
+            match = Logic.try_parse(match)
+            if match is None:
+                match = Expression.try_parse(match)
+                if match is None:
+                    match = MString(match)
+        self._match: int | bool | Logic | Expression | MString | None = match
         
         self._switch = switch
         self._cases = cases
-
         self._params = params
 
 
     def match(self, value: Any, format_keys: FormatKeys) -> bool:
-        if self._params:
-            mapping = format_keys.get_params(self._params)
-            if isinstance(self._match, str):
-                self._match = format_map(self._match, mapping)
-            elif isinstance(self._match, Expression) or isinstance(self._match, Logic):
-                self._match = self._match.format_map(mapping)
-        result = match(value, self._match)
-        return result
+        if self._match is None:
+            return bool(value)
+        if isinstance(self._match, Formattable):
+            mapping = format_keys.get_params(self._params) if self._params else {}
+            formatted_match = self._match.format_map(mapping)
+            return formatted_match.match(value)    
+        if isinstance(self._match, bool):
+            try:
+                value = parse_bool(value)
+            except:
+                raise ValueError("Match constraint is boolean but value is not parseable to boolean")
+            return value == self._match
+        if isinstance(self._match, int):
+            try:
+                value = int(value)
+            except:
+                raise ValueError("Match constraint is integer but value is not pareable to integer")
+            return value == self._match
     
 
     @staticmethod
@@ -647,9 +655,7 @@ class PromptStructure:
                     msgs.extend(prompts)
                     if awaited_prompt: return msgs, awaited_prompt
                 elif isinstance(prompt, PromptUnit):
-                    if prompt.params:
-                        mapping = format_keys.get_params(prompt.params)
-                        prompt = prompt.format_map(mapping)
+                    prompt = prompt.hydrate(format_keys)
                     
                     if "content_" + prompt.id in format_keys.extras:
                         content = format_keys.extras["content_" + prompt.id]
