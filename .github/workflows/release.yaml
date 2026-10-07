@@ -1,0 +1,50 @@
+name: Publish to PyPI
+
+# Tag format: <package-name>/v<version>
+#   e.g. git tag vespwood/v1.4.0 && git push origin vespwood/v1.4.0
+on:
+  push:
+    tags:
+      - "*/v*"
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/${{ steps.meta.outputs.package }}/${{ steps.meta.outputs.version }}/
+    permissions:
+      contents: read
+      id-token: write 
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v9.0.0
+
+      - name: Parse tag
+        id: meta
+        run: |
+          PACKAGE="${GITHUB_REF_NAME%/v*}"
+          VERSION="${GITHUB_REF_NAME##*/v}"
+          echo "package=$PACKAGE" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Releasing $PACKAGE $VERSION"
+
+      - name: Check tag matches package version
+        run: |
+          ACTUAL="$(uv version --package '${{ steps.meta.outputs.package }}' --short)"
+          if [ "$ACTUAL" != "${{ steps.meta.outputs.version }}" ]; then
+            echo "Tag version (${{ steps.meta.outputs.version }}) != pyproject version ($ACTUAL)"
+            exit 1
+          fi
+
+      - name: Build
+        run: uv build --package '${{ steps.meta.outputs.package }}' --no-sources --out-dir dist
+
+      - name: Smoke test the wheel
+        run: uv run --isolated --no-project --with dist/*.whl python -c "print('ok')"
+
+      - name: Publish
+        run: uv publish dist/*
