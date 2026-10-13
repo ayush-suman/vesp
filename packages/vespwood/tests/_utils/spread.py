@@ -1,17 +1,18 @@
-from typing import override
-
-
 class Spread(list[dict]):
     def __mul__(self, value: dict) -> "Spread":
         return [{**value, **term}for term in self]
 
 
-@override
-def spread(param: str, table: tuple | list): ...
-@override
-def spread(param: tuple[str, str], table: dict): ...
-@override
-def spread(param: tuple[str], table: tuple[tuple | list]): ...
+import sys
+if sys.version_info >= (3, 12):
+    from typing import override
+    @override
+    def spread(param: str, table: tuple | list): ...
+    @override
+    def spread(param: tuple[str, str], table: dict): ...
+    @override
+    def spread(param: tuple[str], table: tuple[tuple | list]): ...
+
 def spread(param: str | tuple, table: tuple | list | dict):
     if isinstance(table, dict):
         return Spread([{param[0]: key, param[1]: value} for key, value in table.items()])
