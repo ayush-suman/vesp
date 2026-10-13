@@ -1,5 +1,6 @@
 from .case_1 import *
 from .case_2 import *
+from .case_3 import *
 
 cases = [
     {
@@ -15,5 +16,12 @@ cases = [
         "schemas": [],
         "load_value": case_2.load_value,
         "asserts": case_2.asserts
+    },
+    {
+        "test_json_schema": case_3.test_json_schema,
+        "expected_json_schema": case_3.expected_json_schema,
+        "schemas": [],
+        "load_value": case_3.load_value,
+        "asserts": case_3.asserts
     }
 ]

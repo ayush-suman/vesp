@@ -169,11 +169,12 @@ class Schema(type[T], Schematic, Generic[T]):
                         raise TypeError(f"expected {tp.__name__}, got {payload!r}")
                     return tp(payload)
             
-                bases = tp.__orig_bases__
-                valid_types = (list, set, frozenset, tuple, dict)
-                for b in bases:
-                    if b in valid_types or get_origin(b) in valid_types:
-                        return tp(load_values(b, payload))
+                bases = getattr(tp, "__orig_bases__") if hasattr(tp, "__orig_bases__") else getattr(tp, "__bases__")
+                if bases:
+                    valid_types = (list, set, frozenset, tuple, dict)
+                    for b in bases:
+                        if b in valid_types or get_origin(b) in valid_types:
+                            return tp(load_values(b, payload))
                 
             signature = inspect.signature(tp)
             type_hints = get_type_hints(tp, include_extras=True)
@@ -181,7 +182,6 @@ class Schema(type[T], Schematic, Generic[T]):
             args = {}
             for name, _ in signature.parameters.items():
                 py_type = type_hints.get(name, str)
-                print(payload, name, payload.get(name))
                 args[name] = load_values(py_type, payload.get(name))
 
             return tp(**args)
