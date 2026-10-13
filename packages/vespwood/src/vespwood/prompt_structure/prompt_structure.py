@@ -21,8 +21,7 @@ from vespwood.types import (
     ValidatorsList,
     StructuresList
 )
-from vespwood.matchables.expression import Expression
-from vespwood.matchables.logic import Logic
+from vespwood.matchables import Matchable, Expression, Logic
 
 
 PromptStructureDataUnit: TypeAlias = dict[str, Any]
@@ -196,7 +195,7 @@ class PromptStructure:
     def match(self, value: Any, format_keys: FormatKeys) -> bool:
         if self._match is None:
             return bool(value)
-        if isinstance(self._match, Formattable):
+        if isinstance(self._match, Matchable):
             mapping = format_keys.get_params(self._params) if self._params else {}
             formatted_match = self._match.format_map(mapping)
             return formatted_match.match(value)    

@@ -2,9 +2,10 @@ from __future__  import annotations
 import re
 from typing import Any
 from vespwood._utils import parse_bool, format_map
+from .matchable import Matchable
 
 
-class MString(str):
+class MString(str, Matchable):
     def format_map(self, mapping) -> MString:
         string = format_map(self, mapping)
         return MString(string)

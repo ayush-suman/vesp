@@ -1,0 +1,11 @@
+{
+    "if": "index",
+    "match": "{given_index}",
+    "params": ["given_index"],
+    "then": {
+        "system": "Entered"
+    },
+    "else": {
+        "system": "Skipped"
+    }
+}
