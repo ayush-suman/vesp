@@ -7,7 +7,7 @@ from .errors import (
     MaxTokenLimitError, 
     PauseGeneration, 
     RateLimitError, 
-    StopGeneration, 
+    StopGeneration,
     ValidationError
 )
 
@@ -18,6 +18,7 @@ from .matchables.expression import Expression
 
 from .hook import hook, Hook
 from .tools.hook_tool import HookTool, hooktool
+from .validator import Validator, validator, ValidatorType, ValidatorTypeOptions, MergeStrategy, merge_strategy, discard_all, discard_invalid
 from .interceptor import interceptor, Interceptor
 from .matchables.logic import Logic
 from .prompt_mapping import PromptMapping
@@ -36,7 +37,6 @@ from vespwood_generator import (
     Role,
     Block, File, Image, Structured, ToolCall,
     Message,
-    validator, Validator,
     Schematic, schema, Schema, tool, Tool,
     GeneratorClass, Generator
 )
@@ -91,9 +91,19 @@ __all__ = [
     # Hooks, Interceptors & Validators
     "hook",
     "Hook",
+    
     "hooktool",
     "HookTool",
-    "ResponseHandler",
+
+    "Validator", 
+    "validator", 
+    "ValidatorType", 
+    "ValidatorTypeOptions", 
+    "MergeStrategy", 
+    "merge_strategy",
+    "discard_all", 
+    "discard_invalid",
+
     "interceptor",
     "Interceptor",
     "validator",

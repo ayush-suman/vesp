@@ -1,12 +1,9 @@
 from abc import abstractmethod, ABCMeta
 import asyncio
-import inspect
-from typing import Any, Awaitable, Callable
-from vespwood_generator.blocks.block import Block
+from typing import Any
 from vespwood_generator.schematic import Schema, Tool
-from vespwood_generator.errors import MaxTokenLimitError, RateLimitError, ValidationError
+from vespwood_generator.errors import MaxTokenLimitError, RateLimitError
 from vespwood_generator.message import Message
-from vespwood_generator.validator import Validator
 
 
 class GeneratorClass(ABCMeta):
@@ -33,39 +30,12 @@ class Generator(metaclass=GeneratorClass):
         args: dict[str, Any], 
         schema: Schema | None, 
         tools: list[Tool] | None, 
-        validators: list[Validator] | None, 
-        on_validation_error: Callable[[Message, list[Block], Validator], Any] | None = None,
         continue_on_max_token: bool = True, 
         retry_on_rate_limit: bool = True, 
         retry_with_delay: int = 0
     ) -> Message:
-        response = None
-        validator = None
         try:
-            response = await self.__prompt__(messages, schema, tools)
-            if validators:
-                for v in validators: 
-                    validator = v
-                    v = v.suppliment(**args)
-                    await v(messages, response)
-            return response
-        except ValidationError as e:
-            messages.append(response)
-            messages.append(Message(role="system", content=e.content))
-            result = on_validation_error(response, e.content, validator)
-            if inspect.isawaitable(result):
-                result = await result
-            return await self.get_response(
-                messages=messages,
-                args=args,
-                schema=schema,
-                tools=tools,
-                validators=validators,
-                on_validation_error=on_validation_error,
-                continue_on_max_token=continue_on_max_token,
-                retry_on_rate_limit=retry_on_rate_limit,
-                retry_with_delay=retry_with_delay
-            )
+            return await self.__prompt__(messages, schema, tools)
         except MaxTokenLimitError as e:
             print("Output token limit exceeded.")
             if continue_on_max_token:
@@ -76,8 +46,6 @@ class Generator(metaclass=GeneratorClass):
                     messages=messages,
                     args=args,
                     tools=tools,
-                    validators=validators,
-                    on_validation_error=on_validation_error,
                     continue_on_max_token=continue_on_max_token,
                     retry_on_rate_limit=retry_on_rate_limit,
                     retry_with_delay=retry_with_delay
@@ -93,8 +61,6 @@ class Generator(metaclass=GeneratorClass):
                     args=args,
                     tools=tools,
                     schema=schema,
-                    validators=validators,
-                    on_validation_error=on_validation_error,
                     continue_on_max_token=continue_on_max_token,
                     retry_on_rate_limit=retry_on_rate_limit,
                     retry_with_delay=retry_with_delay

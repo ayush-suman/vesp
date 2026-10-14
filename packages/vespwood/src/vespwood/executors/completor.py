@@ -1,13 +1,13 @@
 from typing import Any
 import uuid
 import asyncio
+from vespwood.validator.validator import Validator
 from vespwood_generator.blocks.block import Block
 from vespwood.executors.executor import Executor
 from vespwood_generator import (
     Generator,
     Schema,
     StopGeneration, Tool,
-    Validator,
     AwaitedType
 )
 from vespwood.executors._prompt import _Prompt
@@ -160,26 +160,35 @@ class Completor(Executor):
                         awaited_prompt.tag
                     )
 
-                    async def on_validation_error(res: Message, error_content: list[Block], validator: Validator):
-                        callbacks = list(map(lambda i: i.on_validation_error_callback, self._interceptors))
-                        await invoke_funcs(callbacks, session_id, awaited_prompt.id, validator, res, error_content)
+                    async def get_valid_response(msgs: list[Message], prompt: _Prompt) -> Message:
+                        response = await self._generator.get_response(
+                            msgs, 
+                            args, 
+                            prompt.schema, 
+                            prompt.tools, 
+                            self._continue_on_max_token, 
+                            self._retry_on_rate_limit, 
+                            self._retry_with_delay
+                        )
 
-                    response = await self._generator.get_response(
-                        messages, 
-                        args, 
-                        awaited_prompt.schema, 
-                        awaited_prompt.tools, 
-                        awaited_prompt.validators, 
-                        on_validation_error,
-                        self._continue_on_max_token, 
-                        self._retry_on_rate_limit, 
-                        self._retry_with_delay
-                    )
+                        result = await prompt.validate(messages)
+                        if result:
+                            validator_message, merge_func, validator = result
+
+                            callbacks = list(map(lambda i: i.on_validation_error_callback, self._interceptors))
+                            await invoke_funcs(callbacks, session_id, prompt.id, validator, response, validator_message)
+
+                            new_response = await get_valid_response(messages + [response, validator_message], prompt)
+                            response = merge_func(response, new_response)
+
+                        return response
+
+                    response = await get_valid_response(messages, awaited_prompt)
+
+                    awaited_prompt.update_content(response.content)
 
                     on_response_callbacks = list(map(lambda i: i.on_response_callback, self._interceptors))
                     await invoke_funcs(on_response_callbacks, session_id, awaited_prompt.id, response)
-
-                    awaited_prompt.update_content(response.content)
                     
                 new_args = await awaited_prompt.invoke(self, args)
                 message_list.update_content(awaited_prompt.id, awaited_prompt.content, args=new_args)

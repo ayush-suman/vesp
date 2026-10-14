@@ -3,13 +3,12 @@ import copy
 import uuid
 
 from typing import Any, overload, TypeAlias
-from dataclasses import dataclass
 
 from vespwood.errors import MissingStructureError
 from vespwood.matchables.mstring import MString
 
 from .prompt_unit import PromptUnit
-from ._format_object import FormatInt, FormatList, FormatKeys
+from vespwood._format_object import FormatInt, FormatList, FormatKeys
 from vespwood_generator import Message
 
 from vespwood._utils import format_map, get_arg, parse_bool

@@ -4,15 +4,14 @@ from .missing_tool_error import MissingToolError
 from .missing_hook_error import MissingHookError
 from .missing_validator_error import MissingValidatorError
 from .missing_structure_error import MissingStructureError
+from .validation_error import ValidationError
 
 from vespwood_generator.errors import (
     MaxTokenLimitError, 
     PauseGeneration, 
     RateLimitError,
-    StopGeneration,
-    ValidationError
-) 
-    
+    StopGeneration
+)  
 
 __all__ = [
     "MissingParamError",

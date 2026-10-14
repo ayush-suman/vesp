@@ -2,16 +2,16 @@ from abc import ABC, abstractmethod
 import inspect
 from typing import Protocol, TypeAlias, Callable, Awaitable, Any
 from vespwood.hook import Hook
+from vespwood.validator.validator import Validator
 from vespwood_generator import Message
 from vespwood_generator.blocks.block import Block
 from vespwood_generator.schematic.schema import Schema
 from vespwood_generator.schematic.tool import Tool
-from vespwood_generator.validator import Validator
 
 
 OnSessionStart: TypeAlias = Callable[[str, str | None, str | None], None]
 OnResponse: TypeAlias = Callable[[str, str, Message], None]
-OnValidationError: TypeAlias = Callable[[str, str, Validator, Message, list[Block]], None]
+OnValidationError: TypeAlias = Callable[[str, str, Validator, Message, Message], None]
 
 class InterceptorFn(Protocol):
     def __call__(
@@ -74,12 +74,12 @@ class Interceptor(ABC):
                 func(session_id, prompt_id, response)
 
 
-    async def on_validation_error_callback(self, session_id: str, prompt_id: str, validator: Validator, response: Message, error_content: list[Block]):
+    async def on_validation_error_callback(self, session_id: str, prompt_id: str, validator: Validator, response: Message, validator_message: Message):
         if func := self._on_validation_error_callback:
             if inspect.iscoroutinefunction(func):
-                await func(session_id, prompt_id, validator, response, error_content)
+                await func(session_id, prompt_id, validator, response, validator_message)
             else: 
-                func(session_id, prompt_id, validator, response, error_content)
+                func(session_id, prompt_id, validator, response, validator_message)
             
    
     @abstractmethod

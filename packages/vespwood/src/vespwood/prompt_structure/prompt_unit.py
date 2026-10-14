@@ -1,12 +1,9 @@
 from __future__ import annotations
-from enum import Enum
-from operator import index
-import string
 from typing import Self
 import uuid
 
 from vespwood._utils import format_map
-from vespwood.prompt_structure._format_object.format_keys import FormatKeys
+from vespwood._format_object import FormatKeys
 from vespwood.tag import Tag
 from vespwood.types.hooks import HooksList
 from vespwood.types.params import Params

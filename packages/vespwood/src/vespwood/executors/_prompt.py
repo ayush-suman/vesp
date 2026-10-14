@@ -2,7 +2,7 @@ from __future__ import annotations
 import asyncio
 import inspect
 
-from typing import Any
+from typing import Any, Callable
 from enum import Enum
 import uuid
 from vespwood._utils import get_arg
@@ -17,12 +17,13 @@ from vespwood.prompt_structure.prompt_structure import PromptStructure
 from vespwood.tools.hook_tool import HookTool
 from vespwood.prompt_structure.prompt_unit import PromptUnit
 from vespwood.tools.prompt_tool import PromptTool
+from vespwood.validator import Validator
 from vespwood_generator import (
     Message,
     File, Image, ToolCall,
     Role,
     Block,
-    Schema, Tool, Validator
+    Schema, Tool
 )
 from vespwood.tag import Tag
 from vespwood.hook import Hook
@@ -34,7 +35,7 @@ from vespwood_generator.blocks.structured import Structured
 from vespwood_generator.errors.stop_generation import StopGeneration
 
 class _Prompt(Message):
-    __slots__ = "_id", "_tag", "_schema", "_tools", "_hooks", "_validators", "_saves", "_hooks_args", "_tools_args", "_errors"
+    __slots__ = "_id", "_tag", "_schema", "_tools", "_hooks", "_validators", "_saves", "_hooks_args", "_tools_args", "_validators_args", "_errors"
     def __init__(self, 
         id: uuid.UUID,
         *,
@@ -57,6 +58,7 @@ class _Prompt(Message):
         self._tag: Tag = Tag(tag)
         self._hooks_args = {}
         self._tools_args = {}
+        self._validators_args = {}
         self._errors = []
         super().__init__(role, content)
 
@@ -70,10 +72,10 @@ class _Prompt(Message):
         validators: list[Validator] = [],
         structures: list[PromptStructure] = []
     ) -> _Prompt:
-        schemas = { s.name: s for s in schemas }
-        tools = { t.name: t for t in tools }
-        hooks = { h.name: h for h in hooks }
-        validators = { v.name: v for v in validators}
+        schemas: dict[str, Schema] = { s.name: s for s in schemas }
+        tools: dict[str, Tool] = { t.name: t for t in tools }
+        hooks: dict[str, Hook] = { h.name: h for h in hooks }
+        validators: dict[str, Validator] = { v.name: v for v in validators}
         structures_map = { s.name: s for s in structures }
         
         _schema: Schema | None = None
@@ -152,7 +154,7 @@ class _Prompt(Message):
             for hook in prompt_unit.hooks or []:
                 _hook: Hook | None = None
                 if isinstance(hook, str):
-                    _hook = hooks[hook]
+                    _hook = hooks.get(hook)
                     if _hook is None:
                         _missing_hooks.append(hook)
                         continue
@@ -189,14 +191,23 @@ class _Prompt(Message):
                 raise MissingHookError(*_missing_hooks)
 
         _validators: list[Validator] = []
+        _validators_args = {}
         if validators:
             _missing_validators = []
             for validator in prompt_unit.validators or []:
-                validator_name = validator if isinstance(validator, str) else validator["name"]
-                _validator = validators.get(validator_name)
-                if _validator is None:
-                    _missing_validators.append(validator_name)
-                    continue
+                _validator = None
+                if isinstance(validator, str):
+                    _validator = validators.get(validator)
+                    if _validator is None:
+                        _missing_validators.append(validator)
+                        continue
+                elif isinstance(validator, dict):
+                    _validator = validators.get(validator["name"])
+                    if _validator is None:
+                        _missing_validators.append(validator["name"])
+                        continue
+                    if "args" in validator:
+                        _validators_args[validator["name"]] = validator["args"]
                 _validators.append(_validator)
             if _missing_validators:
                 raise MissingValidatorError(*_missing_validators)
@@ -340,8 +351,6 @@ class _Prompt(Message):
         return new_args
 
     def update_content(self, content: Block | list[Block]):
-        print("Updating content", content)
-
         if content is None:
             self._content = None
         elif isinstance(content, (str, Structured, ToolCall, Image, File)):
@@ -350,7 +359,18 @@ class _Prompt(Message):
             print(self._content, self.content)
         elif isinstance(content, list):
             self._content = content
-            
+
+
+    async def validate(self, messages: list[Message], args: dict[str, Any]) -> tuple[Message, Callable[[Message, Message], Message], Validator] | None:
+        for validator in self._validators:
+            combined_args = args | self._validators_args.get(validator.name, {})
+            validator = validator.suppliment(**combined_args)
+            result = await validator(messages, self)
+            if result:
+                message, merge_func = result
+                return message, merge_func, validator
+
+
     async def invoke(self, executor: Executor, args: dict[str, Any]) -> dict[str, Any]:
         new_args = await self._invoke_tools(executor, args)
         new_args.update(self._saved_args)

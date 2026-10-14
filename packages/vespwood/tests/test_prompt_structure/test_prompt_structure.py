@@ -2,7 +2,7 @@ from typing import Any
 
 from vespwood import PromptStructure, MessageList, Block, Schema
 from vespwood.executors._prompt import _Prompt
-from vespwood.prompt_structure._format_object import to_format_object
+from vespwood._format_object import to_format_object
 from tests.test_prompt_structure.cases import cases
 from tests._utils.cases import with_cases
 import pathlib

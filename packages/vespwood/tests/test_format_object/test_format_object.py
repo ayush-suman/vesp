@@ -1,5 +1,5 @@
 from vespwood import schema
-from vespwood.prompt_structure._format_object import to_format_object
+from vespwood._format_object import to_format_object
 from dataclasses import dataclass
 
 @schema

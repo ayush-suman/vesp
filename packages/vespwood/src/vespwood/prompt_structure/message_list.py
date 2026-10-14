@@ -6,7 +6,7 @@ from vespwood_generator import (
 )
 from vespwood_generator.blocks.block import Block
 
-from ._format_object import FormatKeys, to_format_object
+from vespwood._format_object import FormatKeys, to_format_object
 from .prompt_unit import PromptUnit
 from .prompt_structure import PromptStructure
 
