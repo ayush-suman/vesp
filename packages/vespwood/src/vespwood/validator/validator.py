@@ -64,14 +64,15 @@ class Validator(ABC, Generic[I], Supplimentable["messages", "response"]):
             return message, merge_func
 
 
-def validator(func: ValidatorFn[I] | AsyncValidatorFn[I] | None = None, *, name: str | None = None, description: str | None = None):
+def validator(func: ValidatorFn[I] | AsyncValidatorFn[I] | None = None, *, name: str | None = None, description: str | None = None, validator_type: ValidatorType = ValidatorTypeOptions.DISCARD_ALL):
     def wrapper(fn: ValidatorFn[I] | AsyncValidatorFn[I]) -> Validator[I]:
         class Wrapper(Validator[I]):
             def __init__(self):
                 self.infer_params_from(fn)
                 super().__init__(
                     name or fn.__name__, 
-                    description or fn.__doc__
+                    description or fn.__doc__,
+                    validator_type=validator_type
                 )
 
             def validate(self, messages: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs) -> None | Awaitable[None]:

@@ -171,7 +171,7 @@ class Completor(Executor):
                             self._retry_with_delay
                         )
 
-                        result = await prompt.validate(messages)
+                        result = await prompt.validate(messages, args)
                         if result:
                             validator_message, merge_func, validator = result
 
