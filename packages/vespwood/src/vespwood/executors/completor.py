@@ -173,13 +173,13 @@ class Completor(Executor):
 
                         result = await prompt.validate(messages, args)
                         if result:
-                            validator_message, merge_func, validator = result
+                            validator_message, merge, validator = result
 
                             callbacks = list(map(lambda i: i.on_validation_error_callback, self._interceptors))
                             await invoke_funcs(callbacks, session_id, prompt.id, validator, response, validator_message)
 
                             new_response = await get_valid_response(messages + [response, validator_message], prompt)
-                            response = merge_func(response, new_response)
+                            response = merge(response, new_response)
 
                         return response
 

@@ -78,11 +78,10 @@ def validator(func: ValidatorFn[I] | AsyncValidatorFn[I] | None = None, *, name:
             def validate(self, messages: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs) -> None | Awaitable[None]:
                 return fn(messages, response, *args, **kwargs)
     
-        Wrapper.__class__.__qualname__ = Validator.__class__.__qualname__
-        Wrapper.__class__.__name__ = Validator.__class__.__name__
+        Wrapper.__qualname__ = fn.__qualname__
+        Wrapper.__name__ = fn.__name__
+        Wrapper.__module__ = fn.__module__
         return Wrapper()
     
-    wrapper.__qualname__ = func.__qualname__
-    wrapper.__name__ = func.__name__
     return wrapper(func) if func else wrapper
     
