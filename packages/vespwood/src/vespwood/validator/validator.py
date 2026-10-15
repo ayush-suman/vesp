@@ -13,14 +13,14 @@ MergeFunc: TypeAlias = Callable[[Message, Message], Message]
 
 I = ParamSpec("I")
 class ValidatorFn(Protocol, Generic[I]):
-    def __call__(messages: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs):
+    def __call__(response: Message, *args: I.args, **kwargs: I.kwargs):
         ...
 
 class AsyncValidatorFn(Protocol, Generic[I]):
-    async def __call__(messages: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs):
+    async def __call__(response: Message, *args: I.args, **kwargs: I.kwargs):
         ...
 
-class Validator(ABC, Generic[I], Supplimentable["messages", "response"]):
+class Validator(ABC, Generic[I], Supplimentable["response"]):
     __slots__ = "_name", "_description"
 
     _name: str
@@ -43,12 +43,12 @@ class Validator(ABC, Generic[I], Supplimentable["messages", "response"]):
         return self._description
 
     @abstractmethod
-    def validate(self, messages: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs) -> None | Awaitable[None]:
+    def validate(self, response: Message, *args: I.args, **kwargs: I.kwargs) -> None | Awaitable[None]:
         ...
 
-    async def __call__(self, messages: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs) -> tuple[Message, MergeFunc] | None:
+    async def __call__(self, response: Message, *args: I.args, **kwargs: I.kwargs) -> tuple[Message, MergeFunc] | None:
         try:
-            task = self.validate(response, messages, *args, **kwargs)
+            task = self.validate(response, *args, **kwargs)
             if task and inspect.isawaitable(task):
                 await task
         except ValidationError as e:
@@ -75,8 +75,8 @@ def validator(func: ValidatorFn[I] | AsyncValidatorFn[I] | None = None, *, name:
                     validator_type=validator_type
                 )
 
-            def validate(self, messages: list[Message], response: Message, *args: I.args, **kwargs: I.kwargs) -> None | Awaitable[None]:
-                return fn(messages, response, *args, **kwargs)
+            def validate(self, response: Message, *args: I.args, **kwargs: I.kwargs) -> None | Awaitable[None]:
+                return fn(response, *args, **kwargs)
     
         Wrapper.__qualname__ = fn.__qualname__
         Wrapper.__name__ = fn.__name__

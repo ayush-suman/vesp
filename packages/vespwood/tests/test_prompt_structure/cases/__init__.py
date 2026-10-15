@@ -1,4 +1,5 @@
 from vespwood_generator.blocks.structured import Structured
+from vespwood_generator.message import Message
 
 from tests._utils.spread import spread
 
@@ -8,9 +9,9 @@ cases = [
     *spread(("responses", "last_response_content"),[
         (
             [
-                Structured({ "analysis": "abc", "change_required": True }),
-                Structured({ "analysis": "abc", "change_required": True }),
-                Structured({ "analysis": "abc", "change_required": False })
+                Message("assistant", Structured({ "analysis": "abc", "change_required": True })),
+                Message("assistant", Structured({ "analysis": "abc", "change_required": True })),
+                Message("assistant", Structured({ "analysis": "abc", "change_required": False }))
             ], ["Fail"]
         )
     ]) * { "file_name": _PRE + "test_agent_1.json", "args": { "change_required": True }},

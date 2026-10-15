@@ -350,26 +350,19 @@ class _Prompt(Message):
                     new_args.update({self._saves[key]: get_arg(payload, key)})
         return new_args
 
-    def update_content(self, content: Block | list[Block]):
-        if content is None:
-            self._content = None
-        elif isinstance(content, (str, Structured, ToolCall, Image, File)):
-            print("Content Updated")
-            self._content = [content]
-            print(self._content, self.content)
-        elif isinstance(content, list):
-            self._content = content
-
-
-    async def validate(self, messages: list[Message], args: dict[str, Any]) -> tuple[Message, Callable[[Message, Message], Message], Validator] | None:
+    async def _validate_against(self, response: Message, args: dict[str, Any]) -> tuple[Message, Callable[[Message, Message], Message], Validator] | None:
         for validator in self._validators:
             combined_args = args | self._validators_args.get(validator.name, {})
             validator = validator.suppliment(**combined_args)
-            result = await validator(messages, self)
+            result = await validator(response)
             if result:
                 message, merge_func = result
                 return message, merge_func, validator
 
+    async def load_message(self, response: Message, args: dict[str, Any]) -> tuple[Message, Callable[[Message, Message], Message], Validator] | None:
+        error = await self._validate_against(response, args)
+        if error: return error
+        self._content = response.content
 
     async def invoke(self, executor: Executor, args: dict[str, Any]) -> dict[str, Any]:
         new_args = await self._invoke_tools(executor, args)

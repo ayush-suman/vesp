@@ -171,9 +171,9 @@ class Completor(Executor):
                             self._retry_with_delay
                         )
 
-                        result = await prompt.validate(messages, args)
-                        if result:
-                            validator_message, merge, validator = result
+                        error = await prompt.load_message(response, args)
+                        if error:
+                            validator_message, merge, validator = error
 
                             callbacks = list(map(lambda i: i.on_validation_error_callback, self._interceptors))
                             await invoke_funcs(callbacks, session_id, prompt.id, validator, response, validator_message)
@@ -183,12 +183,10 @@ class Completor(Executor):
 
                         return response
 
-                    response = await get_valid_response(messages, awaited_prompt)
-
-                    awaited_prompt.update_content(response.content)
+                    valid_response = await get_valid_response(messages, awaited_prompt)
 
                     on_response_callbacks = list(map(lambda i: i.on_response_callback, self._interceptors))
-                    await invoke_funcs(on_response_callbacks, session_id, awaited_prompt.id, response)
+                    await invoke_funcs(on_response_callbacks, session_id, awaited_prompt.id, valid_response)
                     
                 new_args = await awaited_prompt.invoke(self, args)
                 message_list.update_content(awaited_prompt.id, awaited_prompt.content, args=new_args)
