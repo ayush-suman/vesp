@@ -108,7 +108,7 @@ class AnthropicMessagesGenerator(Generator):
             # Structured
             if schema:
                 try:
-                    return Message(Structured(json.loads("".join([block.text for block in message.content if block.type=="text"]))))
+                    return Message("assistant", Structured(json.loads("".join([block.text for block in message.content if block.type=="text"]))))
                 except Exception as e:
                     print("\n\n**Failed to parse response as JSON**\nblock: \n\n", block.text)
                     raise e
