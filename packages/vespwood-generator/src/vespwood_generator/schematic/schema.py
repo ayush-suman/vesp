@@ -131,7 +131,6 @@ class Schema(type[T], Schematic, Generic[T]):
 
     def load(cls, data: dict[str, Any]) -> T:
         def load_values(tp, payload: Any):
-            print(tp, payload)
             if tp is Any:
                 return payload
 

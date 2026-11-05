@@ -628,7 +628,8 @@ class PromptStructure:
             self, 
             format_keys: FormatKeys, 
             *,
-            structures: dict[str, PromptStructure] = {}
+            structures: dict[str, PromptStructure] = {},
+            extras: dict[str, Any] = {}
     ) -> tuple[list[Message], PromptUnit | None]:
         prompt_structure = self.copy()
 
@@ -655,8 +656,8 @@ class PromptStructure:
                 elif isinstance(prompt, PromptUnit):
                     prompt = prompt.hydrate(format_keys)
                     
-                    if "content_" + prompt.id in format_keys.extras:
-                        content = format_keys.extras["content_" + prompt.id]
+                    if "content_" + prompt.id in extras:
+                        content = extras["content_" + prompt.id]
                         prompt.update_content(content)
                     if prompt.is_awaited:
                         return msgs, prompt
@@ -730,10 +731,10 @@ class PromptStructure:
 
             while_snapshots_key = "while_" + prompt_structure.id
 
-            if while_snapshots_key not in format_keys.extras:
-                format_keys.extras[while_snapshots_key] = {}
+            if while_snapshots_key not in extras:
+                extras[while_snapshots_key] = {}
 
-            while_snapshots: dict[int, Any] = format_keys.extras.get(while_snapshots_key)
+            while_snapshots: dict[int, Any] = extras.get(while_snapshots_key)
 
             messages: list[Message] = []
 

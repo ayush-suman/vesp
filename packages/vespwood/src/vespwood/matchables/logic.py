@@ -96,7 +96,6 @@ class Logic(Matchable):
             expr_len = len(expression)
             i = 0
             while i < expr_len:
-                print(i, expr_len)
                 if expression[i] == '(':
                     expr_part, *_ = expression[i + 1:].rsplit(')', maxsplit=1)
                     e, skip = resolve(expr_part)

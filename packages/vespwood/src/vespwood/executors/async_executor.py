@@ -1,0 +1,254 @@
+import inspect
+from typing import Any, Callable, Sequence, TypeVar
+import uuid
+import asyncio
+from vespwood.run import Run, RunRestoreData
+from vespwood.validator.validator import Validator
+from vespwood_generator.blocks.block import Block
+from vespwood.executors.executor import Executor
+from vespwood_generator import (
+    Generator,
+    Schema,
+    StopGeneration, Tool,
+    AwaitedType
+)
+from vespwood.executors._prompt import _Prompt
+from vespwood._utils import invoke_funcs
+from vespwood.interceptor import Interceptor
+from vespwood.hook import Hook
+from vespwood.prompt_structure import MessageList, PromptStructure
+from vespwood.errors import MissingParamError, MissingSchemaError, MissingToolError, MissingHookError, MissingValidatorError, MissingStructureError
+from vespwood_generator.message import Message
+
+
+class AsyncExecutor(Executor):
+    def __init__(
+        self,
+        schemas: Sequence[Schema] = (),
+        tools: Sequence[Tool] = (),
+        hooks: Sequence[Hook] = (),
+        validators: Sequence[Validator] = (),
+        structures: Sequence[PromptStructure] = (),
+        continue_on_max_token: bool = True,
+        retry_on_rate_limit: bool = True,
+        retry_with_delay: int = 0
+    ):
+        super().__init__(
+            schemas=schemas, 
+            tools=tools, 
+            hooks=hooks, 
+            validators=validators, 
+            structures=structures, 
+            continue_on_max_token=continue_on_max_token, 
+            retry_on_rate_limit=retry_on_rate_limit, 
+            retry_with_delay=retry_with_delay
+        )
+
+
+    def validate_for(self, prompt_structure: PromptStructure) -> None:
+        schema_list = set(filter(lambda s: isinstance(s, str), prompt_structure.schemas or []))
+        schema_names = set(map(lambda s: s.name, self._schemas))
+        if diff := schema_list - schema_names:
+            raise MissingSchemaError(*diff)
+
+        tool_list = set(map(lambda t: t["name"] if isinstance(t, dict) else t, prompt_structure.tools or []))
+        tool_names = set(map(lambda t: t.name, self._tools))
+        if diff := tool_list - tool_names:
+            raise MissingToolError(*diff)
+
+        hook_list = set(prompt_structure.hooks or [])
+        hook_names = set(map(lambda h: h.name, self._hooks))
+        if diff := hook_list - hook_names:
+            raise MissingHookError(*diff)
+
+        validator_list = set(prompt_structure.validators or [])
+        validator_names = set(map(lambda v: v.name, self._validators))
+        if diff := validator_list - validator_names:
+            raise MissingValidatorError(*diff)
+
+        structures_list = set(filter(lambda s: isinstance(s, str), prompt_structure.structures or []))
+        structure_names = set(map(lambda s: s.name, self._structures))
+        if diff := structures_list - structure_names:
+            raise MissingStructureError(diff)
+    
+
+    async def __complete__(
+        self, 
+        name: str, 
+        description: str | None, 
+        prompt_structure: PromptStructure, 
+        args: dict[str, Any], 
+        generator_factory: Callable[[], Generator], 
+        *, 
+        extras: dict[str, Any],
+        interceptors: Sequence[Interceptor] = ()
+    ) -> dict[str, Any]:
+        generator = generator_factory()
+
+        inplace_schemas = []
+        for s in filter(lambda s: isinstance(s, dict), prompt_structure.schemas or []):
+            try:
+                inplace_schemas.append(Schema.from_json_schema(**s, schemas=self._schemas + inplace_schemas))
+            except KeyError as e:
+                raise MissingSchemaError(*e.args)
+
+        inplace_structures = []
+        for s in filter(lambda s: isinstance(s, dict), prompt_structure.structures or []):
+            inplace_structures.append(PromptStructure.load_from_dict(uuid.uuid4(), s))
+
+        session_id = uuid.uuid4().hex
+        await invoke_funcs(
+            list(map(lambda i: i.on_session_start_callback, interceptors)),
+            session_id,
+            name,
+            description
+        )
+
+        structures = self._structures + inplace_structures
+
+        message_list = MessageList.from_prompt_structure(prompt_structure, args=args, structures=structures, extras=extras)
+
+        try:
+            messages, args, awaited_prompt = message_list.get_messages()
+
+            while awaited_prompt:    
+                try:
+                    awaited_prompt = _Prompt.from_prompt_unit(
+                        awaited_prompt,
+                        executor=self,
+                        schemas=self._schemas + inplace_schemas,
+                        tools=self._tools,
+                        hooks=self._hooks,
+                        validators=self._validators,
+                        structures=structures
+                    )
+
+                    if awaited_prompt.awaited_type == AwaitedType.REQUIRE_CONTENT:    
+                        await invoke_funcs(
+                            interceptors,
+                            session_id,
+                            awaited_prompt.id,
+                            messages,
+                            args, 
+                            awaited_prompt.schema,
+                            awaited_prompt.tools,
+                            awaited_prompt.hooks,
+                            awaited_prompt.validators,
+                            awaited_prompt.saves,
+                            awaited_prompt.tag
+                        )
+
+                        async def get_valid_response(msgs: list[Message], prompt: _Prompt) -> Message:
+                            response = await generator.get_response(
+                                msgs, 
+                                args, 
+                                prompt.schema, 
+                                prompt.tools, 
+                                self._continue_on_max_token, 
+                                self._retry_on_rate_limit, 
+                                self._retry_with_delay
+                            )
+
+                            error = await prompt.load_message(response, args)
+                            if error:
+                                validator_message, merge, validator = error
+
+                                callbacks = list(map(lambda i: i.on_validation_error_callback, interceptors))
+                                await invoke_funcs(callbacks, session_id, prompt.id, validator, response, validator_message)
+
+                                new_response = await get_valid_response(messages + [response, validator_message], prompt)
+                                response = merge(response, new_response)
+
+                            return response
+
+                        valid_response = await get_valid_response(messages, awaited_prompt)
+
+                        on_response_callbacks = list(map(lambda i: i.on_response_callback, interceptors))
+                        await invoke_funcs(on_response_callbacks, session_id, awaited_prompt.id, valid_response)
+                        
+                    new_args = await awaited_prompt.invoke(generator_factory, args, interceptors=interceptors)
+                    message_list.update_content(awaited_prompt.id, awaited_prompt.content, args=new_args)
+
+                    if awaited_prompt.stop_generation:
+                        print("StopGeneration exception encountered. Stopping generation.")
+                        break
+
+                    messages, args, awaited_prompt = message_list.get_messages()
+                except StopGeneration as e:
+                    break
+
+            return message_list.args
+        except Exception as e:
+            e.stashed_args = args
+            e.stashed_extras = extras
+            raise e
+
+    
+    def __start_run__(
+        executor, 
+        name: str, 
+        description: str | None, 
+        prompt_structure: PromptStructure, 
+        args: dict[str, Any], 
+        generator_factory: Callable[[], Generator], 
+        *, 
+        extras: dict[str, Any],
+        interceptors: Sequence[Interceptor] = ()
+    ) -> Run[dict[str, Any]]:
+        stash_data: asyncio.Future | None = None
+
+        class AsyncRun(Run[dict[str, Any]]):
+            def _link_task(self, task: asyncio.Task[dict[str, Any]]):
+                self._task = task
+                def done_callback(t: asyncio.Task[dict[str, Any]]):
+                    try:
+                        self.set_result(t.result())
+                    except asyncio.CancelledError as e:
+                        stash_data.set_result((e.stashed_args, e.stashed_extras))
+                    except e:
+                        self.set_exception(e, e.stashed_args, e.stashed_extras)
+                self._task.add_done_callback(done_callback)
+
+            def __run__(self, stashed_args: dict[str, Any], stashed_extras: dict[str, Any] = {}):
+                task = asyncio.create_task(executor.__complete__(name, description, prompt_structure, stashed_args, generator_factory, extras=stashed_extras, interceptors=interceptors))
+                self._link_task(task)
+
+            async def __halt__(self, msg: Any | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
+                stash_data = asyncio.Future()
+                self._task.cancel(msg)
+                return await stash_data
+
+        return AsyncRun(args, extras=extras)
+    
+
+    def execute(
+        self, 
+        name: str, 
+        description: str | None, 
+        prompt_structure: PromptStructure, 
+        args: dict[str, Any], 
+        generator_factory: Callable[[], Generator],
+        *, 
+        extras: dict[str, Any] = {},
+        interceptors: Sequence[Interceptor] = ()
+    ) -> Run[dict[str, Any]]:
+        
+        if prompt_structure.params:
+            params = set(map(lambda p: p if isinstance(p, str) else list(p)[0], prompt_structure.params))
+            if diff := params - set(args):
+                raise MissingParamError(*diff)
+        return self.__start_run__(
+            name, 
+            description, 
+            prompt_structure, 
+            args, 
+            generator_factory, 
+            extras=extras, 
+            interceptors=interceptors
+        )
+
+    def resume_with(self, run_restore_data: RunRestoreData, generator_factory: Callable[[], Generator], *, interceptors: list[Interceptor]) -> Run[dict[str, Any]]:
+        # TODO:
+        ...
+
+

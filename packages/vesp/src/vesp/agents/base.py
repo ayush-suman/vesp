@@ -31,6 +31,6 @@ class BaseAgent(Generic[I, O], metaclass=AgentMeta):
     def is_public(self):
         return self._accessibility == "public"
 
-    @abstractmethod
-    def __call__(self, *args: I.args, **kwargs: I.kwargs) -> Invokation[O]:
-        pass
+    # @abstractmethod
+    # def __call__(self, *args: I.args, **kwargs: I.kwargs) -> Invokation[O]:
+    #     pass

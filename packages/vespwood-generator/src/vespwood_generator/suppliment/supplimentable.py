@@ -14,7 +14,6 @@ class Supplimentable:
 
     def __class_getitem__(cls, skip_params: str | tuple[str, ...]) -> type[Supplimentable]:
         params = []
-        print("skip_params", skip_params)
         if isinstance(skip_params, tuple):
             params = list(skip_params)
         else:

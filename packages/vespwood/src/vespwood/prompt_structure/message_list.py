@@ -14,9 +14,10 @@ from .prompt_structure import PromptStructure
 class MessageList(PromptStructure):
     _structures: list[PromptStructure]
     _format_keys: FormatKeys
+    _extras: dict[str, Any]
 
     @classmethod
-    def from_prompt_structure(cls, prompt_structure: PromptStructure, *, args: dict[str, Any] = {}, structures: list[PromptStructure] = []) -> "MessageList":
+    def from_prompt_structure(cls, prompt_structure: PromptStructure, *, args: dict[str, Any] = {}, structures: list[PromptStructure] = [], extras: dict[str, Any] = {}) -> "MessageList":
         self = cls(
             uuid.UUID(prompt_structure.id),
             prompt_list=prompt_structure.prompt_list,
@@ -38,8 +39,8 @@ class MessageList(PromptStructure):
             params=prompt_structure.params
             
         )
-        args = to_format_object(args)
-        self._format_keys = args
+        self._format_keys = to_format_object(args)
+        self._extras = extras
         self._structures = structures
         return self
 
@@ -54,14 +55,15 @@ class MessageList(PromptStructure):
     
 
     def get_messages(self) -> tuple[list[Message], dict[str, Any], PromptUnit | None]:
-        msgs, awaited_prompt = self.hydrate(self._format_keys, structures={s.name: s for s in self._structures})
+        msgs, awaited_prompt = self.hydrate(self._format_keys, structures={s.name: s for s in self._structures}, extras=self._extras)
         return msgs, self._format_keys.normalized, awaited_prompt
 
 
     def update_content(self, id: str, content: Block | list[Block], *, args: dict[str, Any] = {}):
         content = content if isinstance(content, list) else [content]
         format_object = to_format_object(args)
-        self._format_keys.update(format_object, extras={ "content_" + id: content })
+        self._format_keys.update(format_object)
+        self._extras.update({ "content_" + id: content })
 
 
     def add_args(self, args: dict[str, Any]):

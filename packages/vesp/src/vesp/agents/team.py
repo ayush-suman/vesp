@@ -2,7 +2,7 @@ from __future__ import annotations
 from abc import abstractmethod
 import asyncio
 from typing import List, Optional, Callable, Any, Tuple, TypeVar, Type, TypeAlias
-from vesp.invokation import Invokation, Output
+from vesp.invokation import Invokation, OutputFuture
 from vesp.agents.base import BaseAgent
 from vesp.visibility import Visibility
 
@@ -169,7 +169,7 @@ class AgentsTeam(BaseAgent):
     async def handover(self, route: str, output: Any, chain: list[Invokation]) -> Optional[List[HandoverResponse]]: ...
 
 
-    async def __handover__(self, route: str, output: Output) -> None:
+    async def __handover__(self, route: str, output: OutputFuture) -> None:
         handovers = await self.handover(route, output.data, output.chain)
         if handovers:
             for response in handovers:

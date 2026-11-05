@@ -13,7 +13,7 @@ from .visibility import Visibility
 from vespwood import (
     Block, File, Image, Structured, ToolCall,
     Message, Tag,
-    GeneratorClass, Generator, Completor,
+    GeneratorClass, Generator, AsyncExecutor,
     Schematic, schema, Schema, tool, Tool, hook, Hook, hooktool, HookTool, interceptor, Interceptor, validator, Validator,
     HookObject, HooksList, Params, Role, Saves, SchemaObject, SchemaInfo, ToolObject, ToolsList, ValidatorsList
 )
@@ -67,7 +67,7 @@ __all__ = [
     
     "GeneratorClass",
     "Generator",
-    "Completor",
+    "AsyncExecutor",
     
     "Schematic",
     "schema",

@@ -1,3 +1,6 @@
+class InvalidStateError(Exception):
+    ...
+
 from vespwood.errors import (
     MissingHookError, 
     MissingParamError, 
@@ -13,6 +16,8 @@ from vespwood.errors import (
 )
 
 __all__ = [
+    "InvalidStateError",
+    
     "MissingHookError",
     "MissingParamError",
     "MissingSchemaError",

@@ -126,8 +126,6 @@ class Schematic(ABC):
             return Schematic.__class_to_json_schema(func, fallback or Schematic.__any_to_json_schema)
 
         sig = inspect.signature(func)
-        print(func.__name__)
-        print(sig.parameters)
         type_hints = get_type_hints(func, include_extras=True)
         
         properties = {}
