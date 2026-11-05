@@ -750,6 +750,9 @@ class PromptStructure:
                 index += 1
                 prompt_list = indexed(prompt_structure.prompt_list, index)
 
+            if index not in while_snapshots:
+                while_snapshots[index] = case_data
+                
             return messages, None
 
         # Normal
