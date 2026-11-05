@@ -52,7 +52,6 @@ def _openai_chat_completion_msg_converter(message: Message) -> list[dict[str, An
                 "tool_call_id": block.id,
                 "content": json.dumps(block.result)
             })
-    print(msgs)
     return [*msgs]
 
 

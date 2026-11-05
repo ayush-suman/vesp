@@ -5,12 +5,12 @@ from vesp.visibility import Visibility
 from vesp.invokation import Invokation
 from vesp.agents.agent.agent import BaseAgent
 from vesp.agents.team import AgentsTeam, HandoverResponse
-from vespwood import Completor, GeneratorClass, Generator
+from vespwood import AsyncExecutor, GeneratorClass, Generator
 
 
 class GoalSeakerTeam(AgentsTeam):
-    def __init__(self, generator: Callable[..., Completor], *args, **kwargs):
-        self.__generator__: Completor = generator(*args, **kwargs)
+    def __init__(self, generator: Callable[..., AsyncExecutor], *args, **kwargs):
+        self.__generator__: AsyncExecutor = generator(*args, **kwargs)
         super().__init__(self.create_routes(), *args, **kwargs)
 
     @property

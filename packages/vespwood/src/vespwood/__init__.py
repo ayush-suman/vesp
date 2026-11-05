@@ -13,7 +13,7 @@ from .errors import (
 
 from .prompt_structure import PromptStructure, MessageList
 
-from .executors import Executor, Completor
+from .executors import Executor, AsyncExecutor
 from .matchables.expression import Expression
 
 from .hook import hook, Hook
@@ -69,7 +69,7 @@ __all__ = [
 
     # Core
     "Executor",
-    "Completor",
+    "AsyncExecutor",
     "GeneratorClass",
     "Generator",
     "PromptMapping",
@@ -91,7 +91,7 @@ __all__ = [
     # Hooks, Interceptors & Validators
     "hook",
     "Hook",
-    
+
     "hooktool",
     "HookTool",
 

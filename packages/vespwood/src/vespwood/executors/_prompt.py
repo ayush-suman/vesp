@@ -3,7 +3,7 @@ import asyncio
 import inspect
 
 from typing import Any, Callable
-from enum import Enum
+from functools import partial
 import uuid
 from vespwood._utils import get_arg
 from vespwood.errors.missing_structure_error import MissingStructureError
@@ -12,6 +12,7 @@ from vespwood.errors.missing_schema_error import MissingSchemaError
 from vespwood.errors.missing_tool_error import MissingToolError
 from vespwood.errors.missing_validator_error import MissingValidatorError
 from vespwood.executors.executor import Executor
+from vespwood.interceptor import Interceptor
 from vespwood.prompt_hook import PromptHook
 from vespwood.prompt_structure.prompt_structure import PromptStructure
 from vespwood.tools.hook_tool import HookTool
@@ -33,6 +34,7 @@ from vespwood.types import (
 )
 from vespwood_generator.blocks.structured import Structured
 from vespwood_generator.errors.stop_generation import StopGeneration
+from vespwood_generator.generator import Generator
 
 class _Prompt(Message):
     __slots__ = "_id", "_tag", "_schema", "_tools", "_hooks", "_validators", "_saves", "_hooks_args", "_tools_args", "_validators_args", "_errors"
@@ -47,7 +49,6 @@ class _Prompt(Message):
         validators: list[Validator] = [],
         saves: Saves | None = None,
         tag: str | None = None
-
     ):
         self._id: uuid.UUID = id
         self._schema: Schema | None = schema
@@ -66,11 +67,13 @@ class _Prompt(Message):
     def from_prompt_unit(
         prompt_unit: PromptUnit, 
         *, 
+        executor: Executor,
         schemas: list[Schema] = [], 
         tools: list[Tool] = [], 
         hooks: list[Hook] = [], 
         validators: list[Validator] = [],
-        structures: list[PromptStructure] = []
+        structures: list[PromptStructure] = [],
+        
     ) -> _Prompt:
         schemas: dict[str, Schema] = { s.name: s for s in schemas }
         tools: dict[str, Tool] = { t.name: t for t in tools }
@@ -118,6 +121,7 @@ class _Prompt(Message):
 
                         _tool = PromptTool(
                             structure=structure,
+                            executor=executor,
                             output=tool["output"],
                             name=tool["name"], 
                             description=tool.get("description"), 
@@ -169,6 +173,7 @@ class _Prompt(Message):
                             structure = PromptStructure.load_from_dict(uuid.uuid5(uuid.UUID(prompt_unit.id), "hook" + hook["name"]), hook["structure"])
                         _hook = PromptHook(
                             structure=structure,
+                            executor=executor,
                             output=hook["output"],
                             name=hook["name"], 
                             description=hook.get("description"), 
@@ -287,11 +292,11 @@ class _Prompt(Message):
         return any(isinstance(e, StopGeneration) for e in self._errors)
     
 
-    async def _invoke_hooks(self, executor: Executor, args: dict[str, Any]) -> dict[str, Any]:
+    async def _invoke_hooks(self, generator_factory: Callable[[], Generator], args: dict[str, Any], interceptors: list[Interceptor] = []) -> dict[str, Any]:
         new_args = {}
         for hook in self.hooks:
             if isinstance(hook, PromptHook) and not hook.has_executor:
-                hook = hook.with_executor(executor)
+                hook = partial(hook, generator_factory, interceptors)
             combined_args = args | self._hooks_args.get(hook.name, {})
             hook = hook.suppliment(**combined_args)
             returned_args = await hook(self)
@@ -301,7 +306,7 @@ class _Prompt(Message):
         return new_args
 
 
-    async def _invoke_tools(self, executor: Executor, args: dict[str, Any]) -> dict[str, Any]:
+    async def _invoke_tools(self, generator_factory: Callable[[], Generator], args: dict[str, Any], interceptors: list[Interceptor] = []) -> dict[str, Any]:
         new_args = {}
         tasks = []
         _tool_map = None
@@ -322,7 +327,7 @@ class _Prompt(Message):
                         new_args.update(returned_args)
                         args.update(returned_args)
                 elif isinstance(tool, PromptTool) and not tool.has_executor:
-                    tool = tool.with_executor(executor)
+                    tool = partial(tool, generator_factory, interceptors)
                 # Tool Call
                 try:
                     result = tool(**combined_args)
@@ -341,7 +346,6 @@ class _Prompt(Message):
     def _saved_args(self) -> dict[str, Any]:
         new_args = {}
         if self.schema:
-            print(self.content)
             payload = self.schema.load(list(filter(lambda b: isinstance(b, Structured), self.content))[0])
             if self.is_tagged:
                 new_args.update({ self.tag: payload })
@@ -364,10 +368,10 @@ class _Prompt(Message):
         if error: return error
         self._content = response.content
 
-    async def invoke(self, executor: Executor, args: dict[str, Any]) -> dict[str, Any]:
-        new_args = await self._invoke_tools(executor, args)
+    async def invoke(self, generator_factory: Callable[[], Generator], args: dict[str, Any], interceptors: list[Interceptor] = []) -> dict[str, Any]:
+        new_args = await self._invoke_tools(generator_factory, args, interceptors=interceptors)
         new_args.update(self._saved_args)
-        new_args.update(await self._invoke_hooks(executor, args | new_args))
+        new_args.update(await self._invoke_hooks(generator_factory, args | new_args, interceptors=interceptors))
         return new_args
 
     
