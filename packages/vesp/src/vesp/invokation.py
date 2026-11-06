@@ -46,6 +46,10 @@ class OutputFuture(Awaitable[_O], Generic[_O]):
                 self.set_exception(e)
         self._run.add_on_complete_callback(on_complete)
 
+    @property
+    def run(self) -> Run[dict[str, Any]]:
+        return self._run
+
     def force_update(self, ):
         # TODO: ...
         ...
@@ -125,7 +129,10 @@ class Invokation(Generic[_O]):
         self._future: asyncio.Future = asyncio.get_event_loop().create_future()
         self._completion_promised: bool = False
         self._nexts: list[Invokation] = []
+        self._on_complete_promise_callbacks: list[Callable[[], None]] = []
         self._on_complete_callbacks: list[Callable[[], None]] = []
+        self._on_output_promise_callbacks: list[Callable[[OutputFuture[_O]], None]] = []
+        self._on_output_callbacks: list[Callable[[_O], None]] = []
         self._unresolved_output_count = 0
 
     def promise_output(self, output: OutputFuture[_O]):
@@ -137,6 +144,9 @@ class Invokation(Generic[_O]):
             if self._unresolved_output_count == 0 and self._completion_promised:
                 asyncio.create_task(invoke_funcs(self._on_complete_callbacks))
         output.add_on_output_callback(on_output)
+        for callback in self._on_output_callbacks:
+            output.add_on_output_callback(callback)
+        asyncio.create_task(invoke_funcs(self._on_output_promise_callbacks, output))
 
     def promise_complete(self):
         if self._completion_promised:
@@ -144,6 +154,7 @@ class Invokation(Generic[_O]):
         self._completion_promised = True
         if self._unresolved_output_count == 0:
             asyncio.create_task(invoke_funcs(self._on_complete_callbacks))
+        
 
     def pause(self, msg: Any | None) -> bool:
         result = False
@@ -164,8 +175,18 @@ class Invokation(Generic[_O]):
     def add_next(self, invokation: Invokation):
         self._nexts.append(invokation)
 
+    def add_on_complete_promise_callback(self, callback: Callable[[], None]):
+        self._on_complete_promise_callbacks.append(callback)
+
     def add_on_complete_callback(self, callback: Callable[[], None]):
         self._on_complete_callbacks.append(callback)
+
+    def add_on_output_promise_callback(self, callback: Callable[[OutputFuture[_O], None]]):
+        self._on_output_promise_callbacks.append(callback)
+
+    def add_on_output_callback(self, callback: Callable[[_O], None]):
+        for output in self._outputs:
+            output.add_on_output_callback(callback)
 
 
 

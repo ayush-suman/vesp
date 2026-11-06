@@ -1,18 +1,13 @@
 from abc import abstractmethod
 import asyncio
-from copy import copy
 import inspect
-from pathlib import Path
-from types import MethodType
-from typing import Any, Awaitable, Callable, ParamSpec, TypeVar, Protocol, cast, Generic
+from typing import Any, Awaitable, ParamSpec, TypeVar, Protocol, cast
 from urllib.parse import urlparse
 from vesp.invokation import InvokationRestoreData, OutputFuture, Invokation
 from vespwood.run import Run
 from vespwood_generator import suppliment
-from vesp.errors import InvalidStateError
 
 from vesp.agents import BaseAgent
-
 
 
 P = ParamSpec("P")
@@ -38,38 +33,6 @@ O = TypeVar("O")
 C = TypeVar("C")
         
 class Agent(BaseAgent[I, O]):
-    class AgentsList(list["Agent"]):
-        # TODO: Implement modified resume_with
-        def __init__(self, runners: list[Agent], *, next: Agent | list[Agent] | None = None, await_all: bool = False):
-            self._next = next
-            self._await_all = await_all
-            super().__init__(runners)
-
-        def __pow__(self, other: Agent | list[Agent]):
-            base = type(self)
-            class RunnerWithNoAwaitNext(base): ...
-            RunnerWithNoAwaitNext.__name__ = base.__name__
-            RunnerWithNoAwaitNext.__qualname__ = base.__qualname__
-            RunnerWithNoAwaitNext.__module__ = base.__module__
-            return RunnerWithNoAwaitNext(self, next=other, await_all=False)
-
-        def __or__(self, other: Agent | list[Agent]):
-            base = type(self)
-            class RunnerWithAwaitNext(base): ...
-            RunnerWithAwaitNext.__name__ = base.__name__
-            RunnerWithAwaitNext.__qualname__ = base.__qualname__
-            RunnerWithAwaitNext.__module__ = base.__module__
-            return RunnerWithAwaitNext(self, next=other, await_all=True)
-
-        def __add__(self, other: Agent)  -> "Agent.AgentsList":
-            if other.__class__.__name__ in [agent.__class__.__name__ for agent in self]:
-                raise ValueError(f"Can not add agents of same class names")
-            return Agent.AgentsList([*self , other])
-
-        def __call__(self, *args, **kwargs) -> list[Invokation]:
-            return [agent(*args, **kwargs) for agent in self]
-
-
     @abstractmethod
     def prepare_args(self, *args: I.args, **kwargs: I.kwargs): 
         ...
@@ -107,15 +70,7 @@ class Agent(BaseAgent[I, O]):
         ...
 
 
-    def __str__(self):
-        return self._name
-
-
-    def __repr__(self):
-        return self._name
-
-
-    def __on_invoke__(self, run: Run[dict[str, Any]]) -> OutputFuture[O]:
+    def __invoke__(self, run: Run[dict[str, Any]]) -> OutputFuture[O]:
         def on_invoke(output_args: dict[str, Any]) -> asyncio.Task[O]:
             handle_responses = suppliment(self.handle_responses, **output_args)
             handle_responses_task = asyncio.create_task(handle_responses())
@@ -136,7 +91,7 @@ class Agent(BaseAgent[I, O]):
             run.add_on_resume_callback(agent.on_resume)
             run.add_on_error_callback(agent.on_error)
             run.add_on_cancel_callback(agent.on_cancel)
-            output_future = agent.__on_invoke__(run)
+            output_future = agent.__invoke__(run)
             future = invokation.promise_output(output_future)
             return future
         
@@ -192,66 +147,4 @@ class Agent(BaseAgent[I, O]):
         # TODO: full call rewritten from valid checkpoint
         ...
 
-    def __getitem__(self, morph: Callable[[C], list[tuple[Any] | dict[str, Any]]]) -> "Agent":
-        cls = type(self)
-        class MorphInputMixin:
-            def __call__(agent: AgentLike, input: C) -> Invokation[O_co]:
-                def _(res):
-                    if isinstance(res, dict): return ((), res)
-                    elif isinstance(res, tuple): return (res, {})
-                    else: raise ValueError(f"{res} is neither tuple nor dict")
-                args, kwargs = _(morph(input))
-                return super().__call__(*args, **kwargs)
-        new = type(cls.__name__, (MorphInputMixin, cls), {})
-        new_self = copy(self)
-        new_self.__class__ = new
-        return new_self
     
-
-    def __pow__(self, other: Agent | Agent.AgentsList) -> Agent:
-        cls = type(self)
-        class PowChainMixin:
-            # TODO: Implement modified resume_with
-            def __on_invoke__(agent, run: Run[dict[str, Any]]) -> OutputFuture[O]:
-                output_future: OutputFuture[O] = super().__on_invoke__(run)
-                def on_output(future: OutputFuture, output: O_co):
-                    next = other(output)
-                    if isinstance(next, Invokation):
-                        future.add_next(next)
-                    elif isinstance(next, list): 
-                        [future.add_next(each) for each in next]
-                output_future.add_on_output_callback(lambda output, future=output_future: on_output(future, output))
-                return output_future
-
-        new = type(f"{cls.__name__}Pow{other.__class__.__name__}", (PowChainMixin, cls), {})
-        new_self = copy(self)
-        new_self.__class__ = new
-        return new_self
-
-
-    def __or__(self, other: Agent | Agent.AgentsList):
-        cls = type(self)
-        class OrChainMixin:
-            # TODO: Implement modified resume_with
-            def __call__(agent: AgentLike, *args: P.args, **kwargs: P.kwargs) -> Invokation[O_co]:
-                invokation: Invokation[O_co] = super().__call__(args, kwargs)
-                def on_complete(inv: Invokation[O_co], *a, **k):
-                    next = other(*a, **k)
-                    if isinstance(next, Invokation):
-                        inv.add_next(next)
-                    elif isinstance(next, list): 
-                        [inv.add_next(each) for each in next]
-                invokation.add_on_complete_callback(lambda a=args, k=kwargs, inv=invokation: on_complete(inv, *a, **k))
-
-        new = type(f"{cls.__name__}Or{other.__class__.__name__}", (OrChainMixin, cls), {})
-        new_self = copy(self)
-        new_self.__class__ = new
-        return new_self
-
-
-    def __add__(self, other: Agent | Agent.AgentsList) -> Agent.AgentsList:
-        if isinstance(other, Agent.AgentsList): return other + self
-        if other.__class__.__name__ == self.__class__.__name__:
-            raise ValueError("Can not add agents of same class names")
-        return Agent.AgentsList([self, other])
-
