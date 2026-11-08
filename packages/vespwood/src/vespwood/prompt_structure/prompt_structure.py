@@ -738,7 +738,7 @@ class PromptStructure:
 
             messages: list[Message] = []
 
-            while prompt_structure.match(c := while_snapshots.get(index) if c is not None else case_data, format_keys):
+            while prompt_structure.match(while_snapshots.get(index) if index in while_snapshots else case_data, format_keys):
                 extra_keys = { prompt_structure.index_key: FormatInt(index) }
                 format_keys.update(extra_keys)
                 prompts, awaited_prompt = hydrate(prompt_list)

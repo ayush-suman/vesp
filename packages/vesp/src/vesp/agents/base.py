@@ -90,7 +90,6 @@ class BaseAgent(Generic[I, O]):
         new_self.__class__ = new
         return new_self
 
-
     def __add__(self, other: BaseAgent | BaseAgent.AgentsGroup) -> BaseAgent.AgentsGroup:
         if isinstance(other, BaseAgent.AgentsGroup): return other + self
         if other.__class__.__name__ == self.__class__.__name__:

@@ -1,5 +1,3 @@
-
-
 from vespwood.errors import (
     MissingHookError, 
     MissingParamError, 
