@@ -41,8 +41,8 @@ class Executor(ABC):
         params = expected_sig.parameters.items()
         # Get the actual signature of the subclass
         actual_sig = inspect.signature(cls.__init__)
-        first_10_params = actual_sig.parameters.items()[:9]
-        if first_10_params != params:
+        actual_params = actual_sig.parameters.items()
+        if actual_params != params:
             raise TypeError(
                 f"Subclass '{cls.__name__}' must match the __init__ schema: {expected_sig}"
             )

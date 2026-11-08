@@ -2,7 +2,7 @@ from abc import abstractmethod
 import asyncio
 from enum import Enum
 from typing import Any, Awaitable, Callable, Generic, Literal, Self, TypeVar, TypedDict
-from vesp.errors import InvalidStateError
+from vespwood.errors import InvalidStateError
 from vespwood._utils import invoke_funcs
 
 _T = TypeVar("_T")

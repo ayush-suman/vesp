@@ -112,29 +112,8 @@ def agent(
                 cls.__init__(self, *args, **kwargs)
                 Agent.__init__(self, name, description)
 
-            def invoke(self, prepared_args: dict[str, Any], generator_factory: Callable[[], Generator], interceptors: list[Interceptor], *args: P.args, **kwargs: P.kwargs) -> dict[str, Any]:
+            def __invoke__(self, prepared_args: dict[str, Any], generator_factory: Callable[[], Generator], interceptors: list[Interceptor], *args: P.args, **kwargs: P.kwargs) -> dict[str, Any]:
                 return self._executor.execute(self._name, self._description, self._prompt_structure, prepared_args, generator_factory, interceptors=interceptors)
-
-                
-            # def __call__(self, generator_factory: GeneratorClass | Callable[[], Generator], interceptors: list[Interceptor], *args: P_local.args, **kwargs: P_local.kwargs) -> Invokation[O_local]:
-            #     if generator_factory is None:
-            #         raise ValueError(f"Generator not defined for local agent {self.__name__}")
-
-            #     call = super().__call__
-            #     if inspect.isgeneratorfunction(call): ...
-            #     elif inspect.isasyncgenfunction(call): ...
-            #     elif inspect.iscoroutinefunction(call): ...
-            #     else:
-            #         input_args = call(*args, **kwargs)
-            #         chain = Invokation()
-            #         async def run_with() -> O:
-            #             run = _executor.execute(self._name, self._description, self._prompt_structure, input_args, generator_factory, interceptors=interceptors)
-            #             async def get_output(output):
-            #                 return await self.__get_output__(output, chain=chain)
-            #             run.on_complete(get_output)
-            #         task = asyncio.create_task(run_with())
-            #         task.add_done_callback(lambda _: chain.mark_completed())
-            #         return chain
             
         
         AgentWrapper.__name__ = base.__name__

@@ -38,7 +38,7 @@ class Agent(BaseAgent[I, O]):
         ...
 
     @abstractmethod
-    def invoke(self: CallableAgent[CP, CO], prepared_args: dict[str, Any], *args: CP.args, **kwargs: CP.kwargs) -> Run[dict[str, Any]]:
+    def __invoke__(self: CallableAgent[CP, CO], prepared_args: dict[str, Any], *args: CP.args, **kwargs: CP.kwargs) -> Run[dict[str, Any]]:
         '''Accepts args, and returns outputs for the Invokation chain object'''
         ...
 
@@ -69,29 +69,27 @@ class Agent(BaseAgent[I, O]):
     async def on_complete(self, output: O) -> None:
         ...
 
-
-    def __invoke__(self, run: Run[dict[str, Any]]) -> OutputFuture[O]:
-        def on_invoke(output_args: dict[str, Any]) -> asyncio.Task[O]:
-            handle_responses = suppliment(self.handle_responses, **output_args)
-            handle_responses_task = asyncio.create_task(handle_responses())
-            return handle_responses_task
-        class AgentOutputFuture(OutputFuture[O]):
-            def set_post_run_callback(future, run_result: dict[str, Any]) -> Awaitable[O]:
-                return on_invoke(run_result)
-        return AgentOutputFuture(run)
-
-
     def __call__(self: AgentLike[P, O_co], *args: P.args, **kwds: P.kwargs) -> Invokation[O_co]:
         agent = cast("Agent[P, O_co]", self)
         invokation = Invokation()
 
+        def __post_run_setup__(run: Run[dict[str, Any]]) -> OutputFuture[O]:
+            def on_invoke(output_args: dict[str, Any]) -> asyncio.Task[O]:
+                handle_responses = suppliment(agent.handle_responses, **output_args)
+                handle_responses_task = asyncio.create_task(handle_responses())
+                return handle_responses_task
+            class AgentOutputFuture(OutputFuture[O]):
+                def post_run_processing(future, run_result: dict[str, Any]) -> Awaitable[O]:
+                    return on_invoke(run_result)
+            return AgentOutputFuture(run)
+
         def invoke(prepared_args: dict[str, Any]) -> OutputFuture[O]:
-            run = agent.invoke(prepared_args, *args, **kwds)
+            run = agent.__invoke__(prepared_args, *args, **kwds)
             run.add_on_pause_callback(agent.on_pause)
             run.add_on_resume_callback(agent.on_resume)
             run.add_on_error_callback(agent.on_error)
             run.add_on_cancel_callback(agent.on_cancel)
-            output_future = agent.__invoke__(run)
+            output_future = __post_run_setup__(run)
             future = invokation.promise_output(output_future)
             return future
         

@@ -15,9 +15,6 @@ class BaseAgent(Generic[I, O]):
         def __init__(self, agents: list[BaseAgent]):
             self._agents = agents
 
-        def __invoke__(self, run: Run[dict[str, Any]]) -> OutputFuture:
-            
-
         def __call__(self, *args, **kwargs) -> Invokation:
             invokation = Invokation(args, kwargs)
             tbd_count = 0
@@ -27,19 +24,10 @@ class BaseAgent(Generic[I, O]):
                     tbd_count -= 1
                     if tbd_count == 0: invokation.promise_complete()
                 i = agent(args, kwargs)
-                def on_output_promise(output: OutputFuture):
-                    o = self.__invoke__(output.run)
-                    invokation.promise_output(o)
-                i.add_on_output_promise_callback(on_output_promise)
+                i.add_on_output_promise_callback(invokation.promise_output)
                 i.add_on_complete_promise_callback(dec_tbd_count)
             return invokation
             
-
-
-        
-    @abstractmethod
-    def __invoke__(self, run: Run[dict[str, Any]]) -> OutputFuture[O]:
-        ...
 
     @abstractmethod
     def __call__(self, *args: I.args, **kwds: I.kwargs) -> Invokation[O]:
@@ -64,16 +52,18 @@ class BaseAgent(Generic[I, O]):
     def __pow__(self, other: BaseAgent | BaseAgent.AgentsGroup) -> "BaseAgent":
         cls = type(self)
         class PowChainMixin:
-            def __invoke__(agent, run: Run[dict[str, Any]]) -> OutputFuture[O]:
-                output_future: OutputFuture[O] = super().__invoke__(run)
-                def on_output(future: OutputFuture, output: O):
-                    next = other(output)
-                    if isinstance(next, Invokation):
-                        future.add_next(next)
-                    elif isinstance(next, list): 
-                        [future.add_next(each) for each in next]
-                output_future.add_on_output_callback(lambda output, future=output_future: on_output(future, output))
-                return output_future
+            def __call__(agent: BaseAgent, *args: I.args, **kwargs: I.kwargs) -> Invokation[O]:
+                invokation: Invokation[O] = super().__init__(args, kwargs)
+                def on_output_promise(of: OutputFuture[O]):
+                    def on_output(output: O):
+                        next = other(output)
+                        if isinstance(next, Invokation):
+                            of.add_next(next)
+                        elif isinstance(next, list):
+                            [of.add_next(each) for each in next]
+                    of.add_on_output_callback(on_output)
+                invokation.add_on_output_promise_callback(on_output_promise)
+                return invokation
 
         new = type(f"{cls.__name__}Pow{other.__class__.__name__}", (PowChainMixin, cls), {})
         new_self = copy(self)
@@ -84,7 +74,6 @@ class BaseAgent(Generic[I, O]):
     def __or__(self, other: BaseAgent | BaseAgent.AgentsGroup):
         cls = type(self)
         class OrChainMixin:
-            # TODO: Implement modified resume_with
             def __call__(agent: BaseAgent, *args: I.args, **kwargs: I.kwargs) -> Invokation[O]:
                 invokation: Invokation[O] = super().__call__(args, kwargs)
                 def on_complete(inv: Invokation[O], *a, **k):
@@ -94,11 +83,13 @@ class BaseAgent(Generic[I, O]):
                     elif isinstance(next, list): 
                         [inv.add_next(each) for each in next]
                 invokation.add_on_complete_callback(lambda a=args, k=kwargs, inv=invokation: on_complete(inv, *a, **k))
+                return invokation
 
         new = type(f"{cls.__name__}Or{other.__class__.__name__}", (OrChainMixin, cls), {})
         new_self = copy(self)
         new_self.__class__ = new
         return new_self
+
 
     def __add__(self, other: BaseAgent | BaseAgent.AgentsGroup) -> BaseAgent.AgentsGroup:
         if isinstance(other, BaseAgent.AgentsGroup): return other + self

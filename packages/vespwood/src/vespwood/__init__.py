@@ -8,7 +8,8 @@ from .errors import (
     PauseGeneration, 
     RateLimitError, 
     StopGeneration,
-    ValidationError
+    ValidationError,
+    InvalidStateError
 )
 
 from .prompt_structure import PromptStructure, MessageList
@@ -60,6 +61,7 @@ __all__ = [
     "RateLimitError",
     "StopGeneration",
     "ValidationError",
+    "InvalidStateError",
     
     # Message & Prompt Structure
     "Message",

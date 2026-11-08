@@ -37,7 +37,7 @@ class OutputFuture(Awaitable[_O], Generic[_O]):
         self._on_output_callbacks: list[Callable[[_O], None]] = []
         async def on_complete(args: dict[str, Any]):
             try:
-                result = self.set_post_run_callback(args)
+                result = self.post_run_processing(args)
                 if inspect.isawaitable(result):
                     result = await result
                 self.set_result(result)
@@ -59,7 +59,7 @@ class OutputFuture(Awaitable[_O], Generic[_O]):
         ...
 
     @abstractmethod
-    def set_post_run_callback(run_result: dict[str, Any]) -> _O | Awaitable[_O]:
+    def post_run_processing(run_result: dict[str, Any]) -> _O | Awaitable[_O]:
         ...
 
     def add_on_output_callback(self, callback: Callable[[_O], None]):
@@ -139,7 +139,7 @@ class Invokation(Generic[_O]):
         if self._completion_promised:
             raise InvalidStateError("Can not promise new output once completion promised")
         self._unresolved_output_count += 1
-        def on_output():
+        def on_output(_):
             self._unresolved_output_count -= 1
             if self._unresolved_output_count == 0 and self._completion_promised:
                 asyncio.create_task(invoke_funcs(self._on_complete_callbacks))

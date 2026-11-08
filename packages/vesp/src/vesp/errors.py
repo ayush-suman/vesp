@@ -1,5 +1,4 @@
-class InvalidStateError(Exception):
-    ...
+
 
 from vespwood.errors import (
     MissingHookError, 
@@ -13,6 +12,8 @@ from vespwood.errors import (
     RateLimitError, 
     StopGeneration, 
     ValidationError,
+
+    InvalidStateError
 )
 
 __all__ = [
@@ -28,5 +29,7 @@ __all__ = [
     "PauseGeneration",
     "RateLimitError",
     "StopGeneration",
-    "ValidationError"
+    "ValidationError",
+
+    "InvalidStateError"
 ]

@@ -5,6 +5,7 @@ from .missing_hook_error import MissingHookError
 from .missing_validator_error import MissingValidatorError
 from .missing_structure_error import MissingStructureError
 from .validation_error import ValidationError
+from .invalid_state_error import InvalidStateError
 
 from vespwood_generator.errors import (
     MaxTokenLimitError, 
@@ -20,6 +21,8 @@ __all__ = [
     "MissingHookError",
     "MissingValidatorError",
     "MissingStructureError",
+
+    "InvalidStateError"
 
     # Generator
     "MaxTokenLimitError",
