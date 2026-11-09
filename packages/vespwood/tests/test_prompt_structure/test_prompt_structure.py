@@ -32,5 +32,3 @@ async def test_structure(file_name: str, args: dict, responses: list[Message], l
     assert messages[-1].content == last_response_content
 
 
-# def test_match(file_name: str, args: dict, value_table: dict[Any, bool]):
-#     ...

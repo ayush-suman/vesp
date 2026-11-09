@@ -56,6 +56,8 @@ class MessageList(PromptStructure):
 
     def get_messages(self) -> tuple[list[Message], dict[str, Any], PromptUnit | None]:
         msgs, awaited_prompt = self.hydrate(self._format_keys, structures={s.name: s for s in self._structures}, extras=self._extras)
+
+        print("message extras", self._extras)
         return msgs, self._format_keys.normalized, awaited_prompt
 
 

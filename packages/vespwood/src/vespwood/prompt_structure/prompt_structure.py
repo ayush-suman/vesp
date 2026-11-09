@@ -650,7 +650,7 @@ class PromptStructure:
                     if prompt is None:
                         raise MissingStructureError(prompt)
                 if isinstance(prompt, PromptStructure):
-                    prompts, awaited_prompt = prompt.hydrate(format_keys, structures=structures)
+                    prompts, awaited_prompt = prompt.hydrate(format_keys, structures=structures, extras=extras)
                     msgs.extend(prompts)
                     if awaited_prompt: return msgs, awaited_prompt
                 elif isinstance(prompt, PromptUnit):
@@ -746,6 +746,8 @@ class PromptStructure:
 
                 if index not in while_snapshots:
                     while_snapshots[index] = case_data
+
+                print("extras", extras)
 
                 if awaited_prompt: return messages, awaited_prompt
                 index += 1
