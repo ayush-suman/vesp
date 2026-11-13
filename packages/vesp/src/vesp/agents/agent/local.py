@@ -33,8 +33,6 @@ def agent(
     tools: list[Tool] = [], 
     hooks: list[Hook] = [],
     validators: list[Validator] = [],
-    max_requests: int = 0, 
-    delay_constant: float = 0,
     **executor_args
 ):
     def decorator(cls: Callable[A, AgentLike[P, O]]) -> Callable[A, LocalAgentLike[P, O]]:
@@ -94,13 +92,11 @@ def agent(
                 )
 
         _executor = executor(
-            structures=list(map(to_prompt_structure, structures)),
             schemas=schemas,
             tools=tools,
             hooks=hooks,
             validators=validators,
-            delay_constant=delay_constant, 
-            max_requests=max_requests, 
+            structures=list(map(to_prompt_structure, structures)),
             **executor_args
         )
         class AgentWrapper(base):
