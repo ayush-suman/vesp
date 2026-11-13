@@ -1,9 +1,7 @@
 from .agents import (
     BaseAgent, 
     Agent, 
-    agent, 
-    returns_args,
-    yields_args,
+    agent,
     AgentsTeam,
     team
 )
@@ -37,8 +35,6 @@ __all__ = [
 
     "Agent",
     "agent",
-    "returns_args",
-    "yields_args",
     
     "AgentsTeam",
     "team",
