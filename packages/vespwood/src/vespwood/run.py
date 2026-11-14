@@ -141,29 +141,29 @@ class Run(Awaitable[_T | None], Generic[_T]):
         asyncio.create_task(_cancel())
         return True
 
-    async def set_result(self, value: _T): 
+    def set_result(self, value: _T): 
         if self._state == RunState.CANCELLED:
             raise InvalidStateError("Can not add result to cancelled Run")
         if self._state == RunState.ERROR:
             raise InvalidStateError("Run stopped with error. Can not add result")
-        async with self._lock:
-            self._future.set_result(value)
-            Run._invoke_callbacks(self._on_complete_callbacks, value)
-            self._state = RunState.COMPLETED
+        self._state = RunState.COMPLETED
+        self._future.set_result(value)
+        Run._invoke_callbacks(self._on_complete_callbacks, value)
+        
 
-    async def set_exception(self, exception: type | BaseException, stashed_args: dict[str, Any] | None = None, stashed_extras: dict[str, Any] | None = None):
+    def set_exception(self, exception: type | BaseException, stashed_args: dict[str, Any] | None = None, stashed_extras: dict[str, Any] | None = None):
         if self._state == RunState.COMPLETED:
             raise InvalidStateError("Run is already completed. Can not add error")
         if self._state == RunState.PAUSED:
             raise InvalidStateError("Can not add error while the run is paused")
         if self._state == RunState.CANCELLED:
             raise InvalidStateError("Run is already cancelled. Can not add error")
-        async with self._lock:
-            self._future.set_exception(exception)
-            if stashed_args: self._stashed_args = stashed_args
-            if stashed_extras: self._stashed_extras = stashed_extras
-            Run._invoke_callbacks(self._on_error_callbacks, exception, stashed_args, stashed_extras)
-            self._state = RunState.ERROR
+        self._state = RunState.ERROR
+        self._future.set_exception(exception)
+        if stashed_args: self._stashed_args = stashed_args
+        if stashed_extras: self._stashed_extras = stashed_extras
+        Run._invoke_callbacks(self._on_error_callbacks, exception, stashed_args, stashed_extras)
+        
 
     def add_on_restart_callback(self, on_restart_callback: Callable[[dict[str, Any]], None]): 
         self._on_restart_callbacks.append(on_restart_callback)

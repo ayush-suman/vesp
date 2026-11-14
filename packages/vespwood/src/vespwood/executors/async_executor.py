@@ -205,7 +205,7 @@ class AsyncExecutor(Executor):
                         self.set_result(t.result())
                     except asyncio.CancelledError as e:
                         stash_data.set_result((e.stashed_args, e.stashed_extras))
-                    except e:
+                    except Exception as e:
                         self.set_exception(e, e.stashed_args, e.stashed_extras)
                 self._task.add_done_callback(done_callback)
 
