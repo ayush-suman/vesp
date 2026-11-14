@@ -12,7 +12,7 @@ from vespwood.types.schema import SchemaInfo
 from vespwood.types.tools import ToolsList
 from vespwood.types.validators import ValidatorsList
 from vespwood_generator.blocks import Block, Image, File, ToolCall
-from vespwood_generator.blocks.structured import Structured
+from vespwood_generator.structured import Structured
 from vespwood_generator.message import Message
 from vespwood_generator.types.role import Role
 
@@ -25,7 +25,7 @@ class PromptUnit(Message):
         id: uuid.UUID,
         *,
         role: Role, 
-        content: Block | list[Block] | None = None, 
+        content: Block | list[Block] | Structured | None = None, 
         params: Params | None = None, 
         schema: SchemaInfo | None = None, 
         tools: ToolsList | None = None,
@@ -97,12 +97,13 @@ class PromptUnit(Message):
         return prompt
 
     
-    def update_content(self, content: Block | list[Block]):
+    def update_content(self, content: Block | list[Block] | Structured):
         if content is None:
             self._content = None
-        elif isinstance(content, (str, Structured, ToolCall, Image, File)):
+        elif isinstance(content, (str, ToolCall, Image, File)):
             self._content = [content]
-        elif isinstance(content, list):
+        elif isinstance(content, (Structured, list)):
+            print("Updating Content", content, "for prompt id", self.id)
             self._content = content
         
 

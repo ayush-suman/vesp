@@ -1,4 +1,4 @@
-from vespwood_generator.blocks.structured import Structured
+from vespwood_generator.structured import Structured
 from vespwood_generator.message import Message
 
 from tests._utils.spread import spread

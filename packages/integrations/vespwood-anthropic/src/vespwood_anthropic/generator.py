@@ -14,7 +14,7 @@ from vespwood_generator import (
     MaxTokenLimitError, 
     StopGeneration
 )
-from vespwood_generator.blocks.structured import Structured
+from vespwood_generator.structured import Structured
 
 
 @message_converter

@@ -32,7 +32,7 @@ from vespwood.hook import Hook
 from vespwood.types import (
     Saves
 )
-from vespwood_generator.blocks.structured import Structured
+from vespwood_generator.structured import Structured
 from vespwood_generator.errors.stop_generation import StopGeneration
 from vespwood_generator.generator import Generator
 
@@ -42,7 +42,7 @@ class _Prompt(Message):
         id: uuid.UUID,
         *,
         role: Role, 
-        content: Block | list[Block] | None = None, 
+        content: Block | list[Block] | Structured | None = None, 
         schema: Schema | None = None, 
         tools: list[Tool] = [],
         hooks: list[Hook] = [],
@@ -346,12 +346,12 @@ class _Prompt(Message):
     def _saved_args(self) -> dict[str, Any]:
         new_args = {}
         if self.schema:
-            payload = self.schema.load(list(filter(lambda b: isinstance(b, Structured), self.content))[0])
-            if self.is_tagged:
-                new_args.update({ self.tag: payload })
+            payload = self.schema.load(self.content)
             if self._saves:
                 for key in self._saves:
                     new_args.update({self._saves[key]: get_arg(payload, key)})
+        if self.is_tagged:
+            new_args.update({ self.tag: payload })
         return new_args
 
     async def _validate_against(self, response: Message, args: dict[str, Any]) -> tuple[Message, Callable[[Message, Message], Message], Validator] | None:

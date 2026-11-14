@@ -130,20 +130,14 @@ class Invokation(Generic[_O]):
         self._completion_promised: bool = False
         self._nexts: list[Invokation] = []
         self._on_complete_promise_callbacks: list[Callable[[], None]] = []
-        self._on_complete_callbacks: list[Callable[[], None]] = []
+        self._on_complete_callbacks: list[Callable[[list[_O]], None]] = []
         self._on_output_promise_callbacks: list[Callable[[OutputFuture[_O]], None]] = []
         self._on_output_callbacks: list[Callable[[_O], None]] = []
-        self._unresolved_output_count = 0
+        self._combined_future: asyncio.Future[list[_O]] = asyncio.Future()
 
     def promise_output(self, output: OutputFuture[_O]):
         if self._completion_promised:
             raise InvalidStateError("Can not promise new output once completion promised")
-        self._unresolved_output_count += 1
-        def on_output(_):
-            self._unresolved_output_count -= 1
-            if self._unresolved_output_count == 0 and self._completion_promised:
-                asyncio.create_task(invoke_funcs(self._on_complete_callbacks))
-        output.add_on_output_callback(on_output)
         for callback in self._on_output_callbacks:
             output.add_on_output_callback(callback)
         asyncio.create_task(invoke_funcs(self._on_output_promise_callbacks, output))
@@ -152,9 +146,9 @@ class Invokation(Generic[_O]):
         if self._completion_promised:
             raise ValueError("Completion already promised")
         self._completion_promised = True
-        if self._unresolved_output_count == 0:
-            asyncio.create_task(invoke_funcs(self._on_complete_callbacks))
-        
+        combined_awaitable = asyncio.create_task(asyncio.gather(*self._outputs))
+        combined_awaitable.add_done_callback(lambda t: invoke_funcs(self._on_complete_callbacks, t.result()))
+        combined_awaitable.add_done_callback(lambda t: self._combined_future.set_result(t.result()))
 
     def pause(self, msg: Any | None) -> bool:
         result = False
@@ -178,7 +172,7 @@ class Invokation(Generic[_O]):
     def add_on_complete_promise_callback(self, callback: Callable[[], None]):
         self._on_complete_promise_callbacks.append(callback)
 
-    def add_on_complete_callback(self, callback: Callable[[], None]):
+    def add_on_complete_callback(self, callback: Callable[[list[_O]], None]):
         self._on_complete_callbacks.append(callback)
 
     def add_on_output_promise_callback(self, callback: Callable[[OutputFuture[_O], None]]):
@@ -187,4 +181,8 @@ class Invokation(Generic[_O]):
     def add_on_output_callback(self, callback: Callable[[_O], None]):
         for output in self._outputs:
             output.add_on_output_callback(callback)
+
+    def __await__(self):
+        return self._combined_future.__await__()
+
 

@@ -2,7 +2,8 @@ from __future__ import annotations
 from enum import Enum
 from typing import Any, Self
 import uuid
-from vespwood_generator.blocks import Block, Structured, ToolCall, Image, File
+from vespwood_generator.blocks import Block, ToolCall, Image, File
+from vespwood_generator.structured import Structured
 from vespwood_generator.types import Role
 
 
@@ -16,13 +17,13 @@ class Message:
 
     def __init__(self, 
         role: Role, 
-        content: Block | list[Block] | None = None
+        content: Block | list[Block] | Structured | None = None
     ):
         self._role = role
-        self._content: list[Block] = []
-        if isinstance(content, (str, Structured, ToolCall, Image, File)):
+        self._content: list[Block] | Structured = []
+        if isinstance(content, (str, ToolCall, Image, File)):
             self._content = [content]
-        elif isinstance(content, list):
+        elif isinstance(content, (Structured, list)):
             self._content = content
              
     @property
@@ -30,24 +31,24 @@ class Message:
         return self._role
 
     @property
-    def content(self) -> list[Block]:
+    def content(self) -> list[Block] | Structured | None:
         return self._content
-
-
-    def __iter__(self) -> list[Block]:
-        return iter(self._content or [])
     
     def append(self, block: Block):
         if self._content is None: self._content = []
+        if isinstance(self._content, Structured): 
+            raise TypeError("Can not add blocks to message with Structured content")
         self._content.append(block)
     
     def extend(self, content: list[Block]):
         if self._content is None: self._content = []
+        if isinstance(self._content, Structured): 
+            raise TypeError("Can not add blocks to message with Structured content")
         for block in content: self.append(block)
 
     def copy(self) -> Message:
         new_message = Message(self._role)
-        new_message._content = [block.copy() for block in self._content]
+        new_message._content = self._content.copy()
         return new_message
 
     def indexed(self, idx: int) -> Self:
@@ -60,12 +61,12 @@ class Message:
         data = { "role": self.role, "content": self.content }
         return data
 
-    @property
-    def structured(self) -> Structured:
-        for block in self:
-            if isinstance(block, Structured):
-                return block
-        raise ValueError("This response does not have any structured response")
+    # @property
+    # def structured(self) -> Structured:
+    #     for block in self:
+    #         if isinstance(block, Structured):
+    #             return block
+    #     raise ValueError("This response does not have any structured response")
 
     def __str__(self) -> str:
         data = self.json

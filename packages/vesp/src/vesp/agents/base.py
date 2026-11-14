@@ -56,7 +56,7 @@ class BaseAgent(Generic[I, O]):
                 def on_complete(*a, **k):
                     next = other(*a, **k)
                     invokation.add_next(next)
-                invokation.add_on_complete_callback(lambda: on_complete(*args, **kwargs))
+                invokation.add_on_complete_callback(lambda _: on_complete(*args, **kwargs))
                 return invokation
 
         new = type(f"{cls.__name__}Or{other.__class__.__name__}", (OrChainMixin, cls), {})

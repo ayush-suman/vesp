@@ -2,8 +2,7 @@ from typing import TypeAlias
 
 from .file import File
 from .image import Image
-from .structured import Structured
 from .tool_call import ToolCall
 
 
-Block: TypeAlias = str | Structured | ToolCall | Image | File
+Block: TypeAlias = str | ToolCall | Image | File

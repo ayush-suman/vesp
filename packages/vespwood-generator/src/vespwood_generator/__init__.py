@@ -1,5 +1,4 @@
 from .blocks import (
-    Structured,
     File,
     Image,
     ToolCall,
@@ -29,6 +28,8 @@ from .schematic import (
     tool
 )
 
+from .structured import Structured
+
 from .suppliment import (
     suppliment,
     Supplimentable,
@@ -48,6 +49,7 @@ from .errors import (
 
 __all__ = [
     "Structured",
+
     "Image",
     "File",
     "ToolCall",

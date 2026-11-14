@@ -96,20 +96,25 @@ def agent(
             tools=tools,
             hooks=hooks,
             validators=validators,
-            structures=list(map(to_prompt_structure, structures)),
+            structures=list(map(to_prompt_structure, _structures)),
             **executor_args
         )
         class AgentWrapper(base):
             def __init__(self, *args, **kwargs):
                 self._name = name or base.__name__
                 self._description = description or base.__doc__ or ""
-                self._prompt_structure = to_prompt_structure(prompt_structure)
+                self._prompt_structure = to_prompt_structure(_prompt_structure)
                 self._executor = _executor
-                cls.__init__(self, *args, **kwargs)
-                Agent.__init__(self, name, description)
+                super().__init__(*args, **kwargs)
+            
+            def __prepare_args__(self, generator_factory: Callable[[], Generator], interceptors: list[Interceptor], *args: P.args, **kwargs: P.kwargs):
+                return self.prepare_args(*args, **kwargs)
 
-            def __invoke__(self, prepared_args: dict[str, Any], generator_factory: Callable[[], Generator], interceptors: list[Interceptor], *args: P.args, **kwargs: P.kwargs) -> dict[str, Any]:
+            def __invoke__(self, prepared_args: dict[str, Any], generator_factory: Callable[[], Generator], interceptors: list[Interceptor]) -> dict[str, Any]:
                 return self._executor.execute(self._name, self._description, self._prompt_structure, prepared_args, generator_factory, interceptors=interceptors)
+
+            def __on_args__(self, prepared_args, generator_factory: Callable[[], Generator], interceptors: list[Interceptor], *args: P.args, **kwargs: P.kwargs):
+                return self.__invoke__(prepared_args, generator_factory, interceptors)
             
         
         AgentWrapper.__name__ = base.__name__
@@ -121,7 +126,7 @@ def agent(
 
 # @agent("")
 # class TestAgent(Agent):
-#     def prepare_args(self, application_id: int, subapp_id: int, utkarsh: str): 
+#     async def prepare_args(self, application_id: int, subapp_id: int, utkarsh: str): 
 #         ...
 
 #     def handle_responses(self, **kwargs) -> bool:

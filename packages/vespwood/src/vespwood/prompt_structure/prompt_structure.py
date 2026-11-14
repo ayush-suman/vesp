@@ -655,8 +655,9 @@ class PromptStructure:
                     if awaited_prompt: return msgs, awaited_prompt
                 elif isinstance(prompt, PromptUnit):
                     prompt = prompt.hydrate(format_keys)
-                    
+                    print("Hydrated")
                     if "content_" + prompt.id in extras:
+                        print("Content Found")
                         content = extras["content_" + prompt.id]
                         prompt.update_content(content)
                     if prompt.is_awaited:

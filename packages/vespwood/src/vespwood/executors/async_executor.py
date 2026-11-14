@@ -209,8 +209,8 @@ class AsyncExecutor(Executor):
                         self.set_exception(e, e.stashed_args, e.stashed_extras)
                 self._task.add_done_callback(done_callback)
 
-            def __run__(self, stashed_args: dict[str, Any], stashed_extras: dict[str, Any] = {}):
-                task = asyncio.create_task(executor.__complete__(name, description, prompt_structure, stashed_args, generator_factory, extras=stashed_extras, interceptors=interceptors))
+            def __run__(self, args: dict[str, Any], *, extras: dict[str, Any] = {}):
+                task = asyncio.create_task(executor.__complete__(name, description, prompt_structure, args, generator_factory, extras=extras, interceptors=interceptors))
                 self._link_task(task)
 
             async def __halt__(self, msg: Any | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
