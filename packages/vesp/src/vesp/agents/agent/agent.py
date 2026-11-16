@@ -116,7 +116,7 @@ class Agent(BaseAgent[I, O]):
                 try:
                     next_task = asyncio.create_task(generator.asend(awaitable))
                     next_task.add_done_callback(on_task_done)
-                except StopIteration:
+                except StopAsyncIteration:
                     invokation.promise_complete()
             next_task.add_done_callback(on_task_done)
 
