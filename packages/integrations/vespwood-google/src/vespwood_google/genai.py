@@ -8,13 +8,14 @@ import json
 @message_converter
 def _google_genai_message_converter(prompt: Message):
     parts = []
-    for block in prompt.content:
-        if isinstance(block, str):
-            parts.append(Part(text=block))
-        elif isinstance(block, Structured):
-            parts.append(Part(text=json.dumps(block)))
-        elif isinstance(block, ToolCall):
-            parts.append(Part(function_call=FunctionCall(id=block.id, name=block.name, args=block.arguments)))
+    if isinstance(prompt.content, Structured):
+        parts.append(Part(text=json.dumps(block)))
+    else:
+        for block in prompt.content:
+            if isinstance(block, str):
+                parts.append(Part(text=block))
+            elif isinstance(block, ToolCall):
+                parts.append(Part(function_call=FunctionCall(id=block.id, name=block.name, args=block.arguments)))
 
     contents = [Content(parts=parts, role="user" if prompt.role != "assistant" else "model")]
 

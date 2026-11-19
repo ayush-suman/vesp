@@ -21,19 +21,18 @@ from vespwood_generator import (
 
 @message_converter
 def _openai_chat_completion_msg_converter(message: Message) -> list[dict[str, Any]]:
-    msgs = []
+    if isinstance(message.content, Structured):
+        return {
+            "role": message.role,
+            "content": json.dumps(block)
+        }
     
+    msgs = []
     for block in message.content:
-        # TODO: Handle different types of blocks
         if isinstance(block, str):
             msgs.append({
                 "role": message.role,
                 "content": block
-            })
-        elif isinstance(block, dict):
-            msgs.append({
-                "role": message.role,
-                "content": json.dumps(block)
             })
         elif isinstance(block, ToolCall):
             msgs.append({

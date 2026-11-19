@@ -12,6 +12,7 @@ from vespwood import (
     PromptStructure, Executor, AsyncExecutor, 
     Schema, Tool, Hook, Validator
 )
+from vespwood.run import Run
 
 
 A = ParamSpec("A")
@@ -106,15 +107,11 @@ def agent(
                 self._prompt_structure = to_prompt_structure(_prompt_structure)
                 self._executor = _executor
                 super().__init__(*args, **kwargs)
-            
-            def __prepare_args__(self, generator_factory: Callable[[], Generator], interceptors: list[Interceptor], *args: P.args, **kwargs: P.kwargs):
-                return self.prepare_args(*args, **kwargs)
 
-            def __invoke__(self, prepared_args: dict[str, Any], generator_factory: Callable[[], Generator], interceptors: list[Interceptor]) -> dict[str, Any]:
-                return self._executor.execute(self._name, self._description, self._prompt_structure, prepared_args, generator_factory, interceptors=interceptors)
-
-            def __on_args__(self, prepared_args, generator_factory: Callable[[], Generator], interceptors: list[Interceptor], *args: P.args, **kwargs: P.kwargs):
-                return self.__invoke__(prepared_args, generator_factory, interceptors)
+            def __call__(self: AgentLike[P, O], generator_factory: Callable[[], Generator], interceptors: list[Interceptor], *args: P.args, **kwargs: P.kwargs) -> Invokation[O]:
+                def invoke(prepared_args: dict[str, Any]):
+                    return self._executor.execute(self._name, self._description, self._prompt_structure, prepared_args, generator_factory, interceptors=interceptors)
+                return super().__call__(invoke, *args, **kwargs)
             
         
         AgentWrapper.__name__ = base.__name__
@@ -123,15 +120,3 @@ def agent(
         return AgentWrapper
     
     return decorator
-
-# @agent("")
-# class TestAgent(Agent):
-#     async def prepare_args(self, application_id: int, subapp_id: int, utkarsh: str): 
-#         ...
-
-#     def handle_responses(self, **kwargs) -> bool:
-#         return super().handle_responses(**kwargs)
-
-
-# a = TestAgent()
-# invokation = a(lambda role: JevGenerator() if role =="choices" else OpenAIGenerator(), [], )

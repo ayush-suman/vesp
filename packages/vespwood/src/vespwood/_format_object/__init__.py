@@ -40,7 +40,11 @@ def to_format_object(data: Any) -> FormatObject | None:
     skip_types = (FormatInt, FormatFloat, FormatStr, FormatBytes, FormatKeys, FormatList)    
     if not isinstance(data, skip_types):
         cls = data.__class__
-        fields = vars(data)
+        try:
+            fields = vars(data)
+        except:
+            print("Failed for ", data)
+            raise
         return FormatKeys({name: to_format_object(getattr(data, name)) for name in fields}, extras={"__class__": cls, "__object__": data})
     return data
 

@@ -310,7 +310,7 @@ class _Prompt(Message):
         new_args = {}
         tasks = []
         _tool_map = None
-        for block in self:
+        for block in self.content:
             if isinstance(block, ToolCall) and block.result is None:
                 # TODO: Decide whether to store tools as list or dict
                 _tool_map = _tool_map or { t.name: t for t in self._tools }
@@ -351,7 +351,11 @@ class _Prompt(Message):
                 for key in self._saves:
                     new_args.update({self._saves[key]: get_arg(payload, key)})
         if self.is_tagged:
-            new_args.update({ self.tag: payload })
+            if isinstance(self.content, Structured):
+                new_args.update({ self.tag: self.content })
+            else:
+                content = [block.json if isinstance(block, ToolCall) else block for block in self.content]
+                new_args.update({ self.tag: content })
         return new_args
 
     async def _validate_against(self, response: Message, args: dict[str, Any]) -> tuple[Message, Callable[[Message, Message], Message], Validator] | None:

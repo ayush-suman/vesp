@@ -17,23 +17,25 @@ from vespwood_generator import (
 @message_converter
 def _openai_response_msg_converter(prompt: Message):
     msgs = []
-    content = []
-    for block in prompt:
-        t = "output_text" if prompt.role == "assistant" else "input_text"
-        if isinstance(block, str):
-            content.append({"type": t, "text": block})
-        elif isinstance(block, dict):
-            content.append({"type": t, "text": json.dumps(block)})
-        elif isinstance(block, ToolCall):
-            if content:
-                msgs.append({"role": prompt.role, "content": content})
-                content = []
-            msgs.append({"call_id": block.id, "type": "function_call", "name": block.name, "arguments": json.dumps(block.arguments)})
-        
-    msgs.append({
-        "role": "developer" if prompt.role == "system" else prompt.role,
-        "content": content
-    })
+    if isinstance(prompt.content, Structured):
+        return {
+            "role": "developer" if prompt.role == "system" else prompt.role,
+            "content": [{"type": t, "text": json.dumps(block)}]
+        }
+    else:
+        for block in prompt.content:
+            if isinstance(block, str):
+                t = "output_text" if prompt.role == "assistant" else "input_text"
+                content = { "type": t, "text": block }
+                if len(msgs) == 0 or "content" not in msgs[-1]: 
+                    msgs.append({
+                        "role": "developer" if prompt.role == "system" else prompt.role, 
+                        "content": [content]
+                    })
+                else:
+                    msgs[-1]["content"].append(content)
+            elif isinstance(block, ToolCall):
+                msgs.append({"call_id": block.id, "type": "function_call", "name": block.name, "arguments": json.dumps(block.arguments)})
 
     if any(isinstance(block, ToolCall) for block in prompt.content):
         toolcalls: list[ToolCall] = list(filter(lambda b: isinstance(b, ToolCall), prompt.content))
@@ -102,7 +104,7 @@ class OpenAIResponsesGenerator(Generator):
                 if message.type == "message":
                     if schema:
                         text = message.model_dump()["content"][0]["text"]
-                        r.append(Structured(text))
+                        return Message("assistant", Structured(text))
                     else:
                         for block in message.content:
                             if block.type == "output_text":

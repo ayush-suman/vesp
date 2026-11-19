@@ -50,6 +50,10 @@ class MessageList(PromptStructure):
         return self._format_keys.normalized
 
     @property
+    def extras(self) -> dict[str, Any]:
+        return self._extras
+
+    @property
     def structures(self) -> list[PromptStructure]:
         return self._structures
     

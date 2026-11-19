@@ -5,8 +5,6 @@ from typing import Any, Awaitable, Callable, Generic, Literal, Self, TypeVar, Ty
 from vespwood.errors import InvalidStateError
 from vespwood._utils import invoke_funcs
 
-_T = TypeVar("_T")
-
 class RunRestoreData(TypedDict):
     id: str
     args: dict[str, Any]
@@ -30,7 +28,7 @@ class RunState(Enum):
     
 
 
-class Run(Awaitable[_T | None], Generic[_T]):
+class Run(Awaitable[dict[str, Any] | None]):
     def __init__(self, args: dict[str, Any], *, extras: dict[str, Any] = {}):
         self._on_restart_callbacks: list[Callable[[dict[str, Any]], None]] = []
         self._on_pause_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None]] = []
@@ -41,16 +39,41 @@ class Run(Awaitable[_T | None], Generic[_T]):
         self._on_complete_callbacks: list[Callable[[_T], None]] = []
         self._state: RunState = RunState.READY
         self._lock: asyncio.Lock = asyncio.Lock()
+        self._initial_args = args
         self._stashed_args = args
         self._stashed_extras = extras
-        self._future: asyncio.Future[_T | None] = asyncio.get_event_loop().create_future()
-        self.__run__(args, extras=extras)
+        self._future: asyncio.Future[dict[str, Any] | None] = asyncio.get_event_loop().create_future()
+        self._task = asyncio.create_task(self.__run__())
+
+    async def __run__(self):
+        try:
+            self._state = RunState.RUNNING
+            async for args, extras in self.run(self._stashed_args, extras=self._stashed_extras):
+                self._stashed_args = args
+                self._stashed_extras = extras
+            self._future.set_result(self._stashed_args)
+            invoke_funcs(self._on_complete_callbacks, self._stashed_args)
+        except asyncio.CancelledError as e:
+            self._stashed_args = e.stashed_args
+            self._stashed_extras = e.stashed_extras
+            self._future.set_result(None)
+            paused = e.args[0] if e.args else False
+            if paused:
+                await invoke_funcs(self._on_pause_callbacks, self._stashed_args, self._stashed_extras)
+                self._state = RunState.PAUSED
+            else:
+                await invoke_funcs(self._on_cancel_callbacks, self._stashed_args, self._stashed_extras)
+                RunState.CANCELLED
+        except Exception as e:
+            print("Setting run state to ERROR")
+            self._stashed_args = e.stashed_args
+            self._stashed_extras = e.stashed_extras
+            self._future.set_exception(e)
+            await invoke_funcs(self._on_error_callbacks, e, self._stashed_args, self._stashed_extras)
+            self._state = RunState.ERROR
     
     @abstractmethod
-    def __run__(self, args: dict[str, Any], *, extras: dict[str, Any] = {}): ...
-    
-    @abstractmethod
-    async def __halt__(self, msg: Any | None) -> tuple[dict[str, Any], dict[str, Any]]: ...
+    def run(self, args: dict[str, Any], *, extras: dict[str, Any] = {}): ...
 
     @property
     def state(self) -> RunState:
@@ -60,7 +83,7 @@ class Run(Awaitable[_T | None], Generic[_T]):
     def _invoke_callbacks(callbacks: list[Callable], *args: tuple[Any]):
         asyncio.create_task(invoke_funcs(callbacks, *args))
 
-    def force_update(self, state: RunState, result: _T | None = None, error: BaseException | None = None, extras: dict[str, Any] = {}):
+    def force_update(self, state: RunState, result: dict[str, Any] | None = None, error: BaseException | None = None, extras: dict[str, Any] = {}):
         # TODO: Update
         ...
 
@@ -68,7 +91,7 @@ class Run(Awaitable[_T | None], Generic[_T]):
         # TODO: Call relevant callback or start
         ...
 
-    def pause(self, msg: Any | None = None) -> bool: 
+    def pause(self) -> bool: 
         if self._state == RunState.CANCELLED: return False
         if self._state == RunState.PAUSED: return False
         if self._state == RunState.COMPLETED or self._state == RunState.ERROR: return False
@@ -76,13 +99,19 @@ class Run(Awaitable[_T | None], Generic[_T]):
             if self._state == RunState.PAUSED: return
             self._state = RunState.PAUSING
             async with self._lock:
-                stashed_args, stashed_extras = await self.__halt__(msg)
-                self._future.set_result(None)
-                Run._invoke_callbacks(self._on_pause_callbacks, stashed_args, stashed_extras)
-                self._stashed_args = stashed_args
-                self._stashed_extras = stashed_extras
-                self._state = RunState.PAUSED
+                await self._task.cancel(True)
         asyncio.create_task(_pause())
+        return True
+
+    def cancel(self) -> bool:
+        if self._state == RunState.CANCELLED: return False
+        if self._state == RunState.COMPLETED or self._state == RunState.ERROR: return False
+        async def _cancel():
+            async with self._lock:
+                if self._state == RunState.CANCELLED: return
+                self._state = RunState.CANCELLING
+                await self._task.cancel()
+        asyncio.create_task(_cancel())
         return True
 
     def resume(self): 
@@ -94,10 +123,9 @@ class Run(Awaitable[_T | None], Generic[_T]):
             if self._state == RunState.RUNNING: return
             self._state = RunState.RESUMING
             async with self._lock:
-                self.__run__(self._stashed_args, extras=self._stashed_extras)
+                self._task = asyncio.create_task(self.__run__())
                 self._future = asyncio.get_event_loop().create_future()
-                Run._invoke_callbacks(self._on_resume_callbacks, self._stashed_args, self._stashed_extras)
-                self._state = RunState.RUNNING
+                Run._invoke_callbacks(self._on_resume_callbacks, self._stashed_args, self._stashed_extras) 
         asyncio.create_task(_resume())
 
     def retry(self):
@@ -107,62 +135,10 @@ class Run(Awaitable[_T | None], Generic[_T]):
             async with self._lock:
                 if not hasattr(self, "_stashed_args") or not hasattr(self, "_stashed_extras"):
                     raise InvalidStateError("Unable retry due to missing args or extras")
-                self.__run__(self._stashed_args, extras=self._stashed_extras)
+                self._task = asyncio.create_task(self.__run__())
                 self._future = asyncio.get_event_loop().create_future()
                 Run._invoke_callbacks(self._on_retry_callbacks, self._stashed_args, self._stashed_extras)
-                self._state = RunState.RUNNING
-            asyncio.create_task(_retry())
-
-    def restart(self):
-        async def _restart():
-            async with self._lock:
-                if self._state != RunState.CANCELLED or self._state != RunState.ERROR:
-                    self._stashed_args, _ = await self.__halt__()
-                self._state = RunState.RESTARTING
-                self.__run__(self._stashed_args)
-                self._future = asyncio.get_event_loop().create_future()
-                Run._invoke_callbacks(self._on_restart_callbacks, self._stashed_args)
-                self._state = RunState.RUNNING
-        asyncio.create_task(_restart())
-
-    def cancel(self, msg: Any | None = None) -> bool:
-        if self._state == RunState.CANCELLED: return False
-        if self._state == RunState.COMPLETED or self._state == RunState.ERROR: return False
-        async def _cancel():
-            async with self._lock:
-                if self._state == RunState.CANCELLED: return
-                self._state = RunState.CANCELLING
-                stashed_args, stashed_extras = await self.__halt__(msg)
-                self._future.set_result(None)
-                Run._invoke_callbacks(self._on_cancel_callbacks, stashed_args, stashed_extras)
-                self._stashed_args = stashed_args
-                self._stashed_extras = stashed_extras
-                self._state = RunState.CANCELLED
-        asyncio.create_task(_cancel())
-        return True
-
-    def set_result(self, value: _T): 
-        if self._state == RunState.CANCELLED:
-            raise InvalidStateError("Can not add result to cancelled Run")
-        if self._state == RunState.ERROR:
-            raise InvalidStateError("Run stopped with error. Can not add result")
-        self._state = RunState.COMPLETED
-        self._future.set_result(value)
-        Run._invoke_callbacks(self._on_complete_callbacks, value)
-        
-
-    def set_exception(self, exception: type | BaseException, stashed_args: dict[str, Any] | None = None, stashed_extras: dict[str, Any] | None = None):
-        if self._state == RunState.COMPLETED:
-            raise InvalidStateError("Run is already completed. Can not add error")
-        if self._state == RunState.PAUSED:
-            raise InvalidStateError("Can not add error while the run is paused")
-        if self._state == RunState.CANCELLED:
-            raise InvalidStateError("Run is already cancelled. Can not add error")
-        self._state = RunState.ERROR
-        self._future.set_exception(exception)
-        if stashed_args: self._stashed_args = stashed_args
-        if stashed_extras: self._stashed_extras = stashed_extras
-        Run._invoke_callbacks(self._on_error_callbacks, exception, stashed_args, stashed_extras)
+        asyncio.create_task(_retry())
         
 
     def add_on_restart_callback(self, on_restart_callback: Callable[[dict[str, Any]], None]): 
@@ -180,7 +156,7 @@ class Run(Awaitable[_T | None], Generic[_T]):
     def add_on_error_callback(self, on_error_callback: Callable[[Exception, dict[str, Any], dict[str, Any]], None]):
         self._on_error_callbacks.append(on_error_callback)
 
-    def add_on_complete_callback(self, on_complete_callback: Callable[[_T], None]): 
+    def add_on_complete_callback(self, on_complete_callback: Callable[[dict[str, Any]], None]): 
         self._on_complete_callbacks.append(on_complete_callback)
 
     def __await__(self):
@@ -195,7 +171,7 @@ class Run(Awaitable[_T | None], Generic[_T]):
     def done(self) -> bool: 
         return self._state == RunState.COMPLETED or self._state == RunState.ERROR
     
-    def result(self) -> _T:
+    def result(self) -> dict[str, Any]:
         return self._future.result()
     
     def exception(self) -> BaseException | None:

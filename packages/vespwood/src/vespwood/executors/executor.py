@@ -78,9 +78,9 @@ class Executor(ABC):
         *, 
         extras: dict[str, Any] = {},
         interceptors: Sequence[Interceptor] = ()
-    ) -> Run[dict[str, Any]]:
+    ) -> Run:
         ...
 
     @abstractmethod
-    def resume_with(self, run_restore_data: RunRestoreData) -> Run[dict[str, Any]]:
+    def resume_with(self, run_restore_data: RunRestoreData) -> Run:
         ...

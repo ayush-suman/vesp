@@ -14,8 +14,7 @@ class BaseAgent(Generic[I, O]):
         ...
 
     def __getitem__(self, morph: Callable[[C], list[tuple[Any] | dict[str, Any]]]) -> "BaseAgent":
-        cls = type(self)
-        class MorphInputMixin:
+        class MorphedInputAgent(BaseAgent):
             def __call__(agent, input: C) -> Invokation[O]:
                 def _(res):
                     if isinstance(res, dict): return ((), res)
@@ -23,69 +22,60 @@ class BaseAgent(Generic[I, O]):
                     else: raise ValueError(f"{res} is neither tuple nor dict")
                 args, kwargs = _(morph(input))
                 return super().__call__(*args, **kwargs)
-        new = type(cls.__name__, (MorphInputMixin, cls), {})
-        new_self = copy(self)
-        new_self.__class__ = new
-        return new_self
-    
+        return MorphedInputAgent()
 
     def __pow__(self, other: BaseAgent) -> BaseAgent:
-        cls = type(self)
-        class PowChainMixin:
-            def __call__(agent: BaseAgent, *args: I.args, **kwargs: I.kwargs) -> Invokation[O]:
-                invokation: Invokation[O] = super().__init__(args, kwargs)
-                def on_output_promise(of: OutputFuture[O]):
-                    def on_output(output: O):
-                        next = other(output)
-                        of.add_next(next)
-                    of.add_on_output_callback(on_output)
-                invokation.add_on_output_promise_callback(on_output_promise)
+        class PowAgentGroup(BaseAgent):
+            def __call__(agent: BaseAgent, *args: I.args, **kwargs: I.kwargs) -> Invokation:
+                invokation = Invokation(args, kwargs)
+                count = 0
+                inv = self(*args, **kwargs)
+                def on_output_promise():
+                    nonlocal count
+                    count += 1
+                def on_complete_promise():
+                    nonlocal count
+                    count -= 1
+                    if count == 0:
+                        invokation.promise_complete()
+                def on_output(o):
+                    i = other(o)
+                    i.add_on_output_promise_callback(invokation.promise_output)
+                    i.add_on_complete_promise_callback(on_complete_promise)
+                inv.add_on_output_promise_callback(on_output_promise)
+                inv.add_on_output_callback(on_output)
                 return invokation
-
-        new = type(f"{cls.__name__}Pow{other.__class__.__name__}", (PowChainMixin, cls), {})
-        new_self = copy(self)
-        new_self.__class__ = new
-        return new_self
-
+        return PowAgentGroup()
 
     def __or__(self, other: BaseAgent):
-        cls = type(self)
-        class OrChainMixin:
-            def __call__(agent: BaseAgent, *args: I.args, **kwargs: I.kwargs) -> Invokation[O]:
-                invokation: Invokation[O] = super().__call__(args, kwargs)
-                def on_complete(*a, **k):
-                    next = other(*a, **k)
-                    invokation.add_next(next)
-                invokation.add_on_complete_callback(lambda _: on_complete(*args, **kwargs))
+        class OrAgentGroup(BaseAgent):
+            def __call__(agent: BaseAgent, *args: I.args, **kwargs: I.kwargs) -> Invokation:
+                invokation = Invokation(args, kwargs)
+                inv = self(*args, **kwargs)
+                def on_complete(_):
+                    i = other(*args, **kwargs)
+                    i.add_on_output_promise_callback(invokation.promise_output)
+                    i.add_on_complete_promise_callback(lambda _: invokation.promise_complete)
+                inv.add_on_complete_callback(on_complete)
                 return invokation
+        return OrAgentGroup()
 
-        new = type(f"{cls.__name__}Or{other.__class__.__name__}", (OrChainMixin, cls), {})
-        new_self = copy(self)
-        new_self.__class__ = new
-        return new_self
+    def __add__(self, other: BaseAgent) -> BaseAgent:
+        class AddAgentGroup(BaseAgent):
+            def __call__(self, *args, **kwargs) -> Invokation:
+                invokation = Invokation(args, kwargs)
+                tbd_count = 0
+                for agent in (self, other):
+                    tbd_count += 1
+                    def dec_tbd_count():
+                        nonlocal tbd_count
+                        tbd_count -= 1
+                        if tbd_count == 0: invokation.promise_complete()
+                    i = agent(args, kwargs)
+                    i.add_on_output_promise_callback(invokation.promise_output)
+                    i.add_on_complete_promise_callback(dec_tbd_count)
+                return invokation
+        return AddAgentGroup()
 
 
-    def __add__(self, other: BaseAgent) -> AgentsGroup:
-        if isinstance(other, AgentsGroup): return other + self
-        if other.__class__.__name__ == self.__class__.__name__:
-            raise ValueError("Can not add agents of same class names")
-        return BaseAgent.AgentsGroup([self, other])
 
-
-
-class AgentsGroup(BaseAgent):
-    def __init__(self, agents: list[BaseAgent]):
-        self._agents = agents
-
-    def __call__(self, *args, **kwargs) -> Invokation:
-        invokation = Invokation(args, kwargs)
-        tbd_count = 0
-        for agent in self._agents:
-            tbd_count += 1
-            def dec_tbd_count():
-                tbd_count -= 1
-                if tbd_count == 0: invokation.promise_complete()
-            i = agent(args, kwargs)
-            i.add_on_output_promise_callback(invokation.promise_output)
-            i.add_on_complete_promise_callback(dec_tbd_count)
-        return invokation

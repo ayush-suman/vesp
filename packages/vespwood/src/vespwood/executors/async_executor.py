@@ -1,10 +1,9 @@
 import inspect
-from typing import Any, Callable, Sequence, TypeVar
+from typing import Any, Callable, Sequence
 import uuid
 import asyncio
 from vespwood.run import Run, RunRestoreData
 from vespwood.validator.validator import Validator
-from vespwood_generator.blocks.block import Block
 from vespwood.executors.executor import Executor
 from vespwood_generator import (
     Generator,
@@ -82,7 +81,7 @@ class AsyncExecutor(Executor):
         *, 
         extras: dict[str, Any],
         interceptors: Sequence[Interceptor] = ()
-    ) -> dict[str, Any]:
+    ):
         generator = generator_factory()
 
         inplace_schemas = []
@@ -169,6 +168,8 @@ class AsyncExecutor(Executor):
                     new_args = await awaited_prompt.invoke(generator_factory, args, interceptors=interceptors)
                     message_list.update_content(awaited_prompt.id, awaited_prompt.content, args=new_args)
 
+                    yield message_list.args, message_list.extras
+
                     if awaited_prompt.stop_generation:
                         print("StopGeneration exception encountered. Stopping generation.")
                         break
@@ -177,10 +178,9 @@ class AsyncExecutor(Executor):
                 except StopGeneration as e:
                     break
 
-            return message_list.args
         except Exception as e:
-            e.stashed_args = args
-            e.stashed_extras = extras
+            e.stashed_args = message_list.args
+            e.stashed_extras = message_list.extras
             raise e
 
     
@@ -194,29 +194,18 @@ class AsyncExecutor(Executor):
         *, 
         extras: dict[str, Any],
         interceptors: Sequence[Interceptor] = ()
-    ) -> Run[dict[str, Any]]:
-        stash_data: asyncio.Future | None = None
-
-        class AsyncRun(Run[dict[str, Any]]):
-            def _link_task(self, task: asyncio.Task[dict[str, Any]]):
-                self._task = task
-                def done_callback(t: asyncio.Task[dict[str, Any]]):
-                    try:
-                        self.set_result(t.result())
-                    except asyncio.CancelledError as e:
-                        stash_data.set_result((e.stashed_args, e.stashed_extras))
-                    except Exception as e:
-                        self.set_exception(e, e.stashed_args, e.stashed_extras)
-                self._task.add_done_callback(done_callback)
-
-            def __run__(self, args: dict[str, Any], *, extras: dict[str, Any] = {}):
-                task = asyncio.create_task(executor.__complete__(name, description, prompt_structure, args, generator_factory, extras=extras, interceptors=interceptors))
-                self._link_task(task)
-
-            async def __halt__(self, msg: Any | None = None) -> tuple[dict[str, Any], dict[str, Any]]:
-                stash_data = asyncio.Future()
-                self._task.cancel(msg)
-                return await stash_data
+    ) -> Run:
+        class AsyncRun(Run):
+            def run(self, args: dict[str, Any], *, extras: dict[str, Any] = {}):
+                return executor.__complete__(
+                    name, 
+                    description, 
+                    prompt_structure, 
+                    args, 
+                    generator_factory, 
+                    extras=extras, 
+                    interceptors=interceptors
+                )
 
         return AsyncRun(args, extras=extras)
     
@@ -231,7 +220,7 @@ class AsyncExecutor(Executor):
         *, 
         extras: dict[str, Any] = {},
         interceptors: Sequence[Interceptor] = ()
-    ) -> Run[dict[str, Any]]:
+    ) -> Run:
         
         if prompt_structure.params:
             params = set(map(lambda p: p if isinstance(p, str) else list(p)[0], prompt_structure.params))
@@ -247,7 +236,7 @@ class AsyncExecutor(Executor):
             interceptors=interceptors
         )
 
-    def resume_with(self, run_restore_data: RunRestoreData, generator_factory: Callable[[], Generator], *, interceptors: list[Interceptor]) -> Run[dict[str, Any]]:
+    def resume_with(self, run_restore_data: RunRestoreData, generator_factory: Callable[[], Generator], *, interceptors: list[Interceptor]) -> Run:
         # TODO:
         ...
 

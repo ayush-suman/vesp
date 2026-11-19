@@ -21,13 +21,25 @@ from vespwood_generator.structured import Structured
 def _anthropic_messages_msg_converter(prompt: Message) -> list[dict[str, Any]]:
     msgs = []
     content = []
-    for block in prompt:
+    if isinstance(prompt.content, Structured):
+        return {
+            "role": "user" if prompt._role != "assistant" else "assistant",
+            "content": [{
+                "type": "text", 
+                "text": json.dumps(block)
+            }]
+        }
+
+    for block in prompt.content:
         if isinstance(block, str):
             content.append({"type": "text", "text": block})
-        elif isinstance(block, dict):
-            content.append({"type": "text", "text": json.dumps(block)})
         elif isinstance(block, ToolCall):
-            content.append({"type": "tool_use", "id": block.id, "name": block.name, "input": block.arguments})
+            content.append({
+                "type": "tool_use", 
+                "id": block.id, 
+                "name": block.name, 
+                "input": block.arguments
+            })
         
     msgs.append({
         "role": "user" if prompt._role != "assistant" else "assistant",

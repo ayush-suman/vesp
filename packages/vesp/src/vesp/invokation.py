@@ -3,7 +3,7 @@ from abc import abstractmethod
 import asyncio
 import inspect
 from typing import Any, Awaitable, Callable, Literal, TypeAlias, TypeVar, Generic, TypedDict
-from vesp._utils import invoke_funcs
+from vesp._utils.invoke_funcs import invoke_funcs
 from vesp.errors import InvalidStateError
 from vespwood.run import Run, RunRestoreData
 
@@ -29,9 +29,9 @@ class InvokationRestoreData(TypedDict):
 
 PostRunCallback: TypeAlias = Callable[[dict[str, Any]], _O | Awaitable[_O]]
 class OutputFuture(Awaitable[_O], Generic[_O]):
-    def __init__(self, run: Run[dict[str, Any]]):
+    def __init__(self, run: Run):
         self._id: str = "" # TODO:
-        self._run: Run[dict[str, Any]] = run
+        self._run: Run = run
         self._future: asyncio.Future[_O | None] = asyncio.get_event_loop().create_future()
         self._nexts: list[Invokation] = []
         self._on_output_callbacks: list[Callable[[_O], None]] = []
@@ -40,14 +40,18 @@ class OutputFuture(Awaitable[_O], Generic[_O]):
                 result = self.post_run_processing(args)
                 if inspect.isawaitable(result):
                     result = await result
-                self.set_result(result)
+                self._future.set_result(result)
                 asyncio.create_task(invoke_funcs(self._on_output_callbacks, result))
             except Exception as e:
-                self.set_exception(e)
+                self._future.set_exception(e)
         self._run.add_on_complete_callback(on_complete)
+        async def on_error(e: Exception, *a):
+            print("Setting output future to exception", e)
+            self._future.set_exception(e)
+        self._run.add_on_error_callback(on_error)
 
     @property
-    def run(self) -> Run[dict[str, Any]]:
+    def run(self) -> Run:
         return self._run
 
     def force_update(self, ):
@@ -82,12 +86,6 @@ class OutputFuture(Awaitable[_O], Generic[_O]):
 
     def add_next(self, invokation: Invokation):
         self._nexts.append(invokation)
-
-    def set_result(self, result: _O):
-        self._future.set_result(result)
-
-    def set_exception(self, exception: type | BaseException):
-        self._future.set_exception(exception)
 
     def __await__(self):
         return self._future.__await__()
@@ -136,6 +134,7 @@ class Invokation(Generic[_O]):
         self._combined_future: asyncio.Future[list[_O]] = asyncio.Future()
 
     def promise_output(self, output: OutputFuture[_O]):
+        self._outputs.append(output)
         if self._completion_promised:
             raise InvalidStateError("Can not promise new output once completion promised")
         for callback in self._on_output_callbacks:
@@ -146,9 +145,13 @@ class Invokation(Generic[_O]):
         if self._completion_promised:
             raise ValueError("Completion already promised")
         self._completion_promised = True
-        combined_awaitable = asyncio.create_task(asyncio.gather(*self._outputs))
-        combined_awaitable.add_done_callback(lambda t: invoke_funcs(self._on_complete_callbacks, t.result()))
-        combined_awaitable.add_done_callback(lambda t: self._combined_future.set_result(t.result()))
+        async def schedule_callback():
+            outputs = []
+            for output in self._outputs:
+                outputs.append(await output)
+            await invoke_funcs(self._on_complete_callbacks, outputs)
+            self._combined_future.set_result(outputs)
+        asyncio.create_task(schedule_callback())
 
     def pause(self, msg: Any | None) -> bool:
         result = False
