@@ -52,7 +52,7 @@ class Run(Awaitable[dict[str, Any] | None]):
                 self._stashed_args = args
                 self._stashed_extras = extras
             self._future.set_result(self._stashed_args)
-            invoke_funcs(self._on_complete_callbacks, self._stashed_args)
+            await invoke_funcs(self._on_complete_callbacks, self._stashed_args)
         except asyncio.CancelledError as e:
             self._stashed_args = e.stashed_args
             self._stashed_extras = e.stashed_extras
@@ -65,7 +65,6 @@ class Run(Awaitable[dict[str, Any] | None]):
                 await invoke_funcs(self._on_cancel_callbacks, self._stashed_args, self._stashed_extras)
                 RunState.CANCELLED
         except Exception as e:
-            print("Setting run state to ERROR")
             self._stashed_args = e.stashed_args
             self._stashed_extras = e.stashed_extras
             self._future.set_exception(e)

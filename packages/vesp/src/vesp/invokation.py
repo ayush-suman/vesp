@@ -46,7 +46,6 @@ class OutputFuture(Awaitable[_O], Generic[_O]):
                 self._future.set_exception(e)
         self._run.add_on_complete_callback(on_complete)
         async def on_error(e: Exception, *a):
-            print("Setting output future to exception", e)
             self._future.set_exception(e)
         self._run.add_on_error_callback(on_error)
 
