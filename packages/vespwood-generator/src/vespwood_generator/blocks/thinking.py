@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 class Thinking:
-    def __init__(self, id: str, summary: list[str], signature: str):
+    def __init__(self, signature: str, id: str | None = None, summary: list[str] | str = []):
         self._id = id
-        self._summary = summary
+        self._summary = summary if isinstance(summary, list) else [summary]
         self._signature = signature
 
     @property
-    def id(self) -> str:
+    def id(self) -> str | None:
         return self._id
 
     @property
@@ -19,7 +19,7 @@ class Thinking:
         return self._signature
 
     def copy(self) -> Thinking:
-        return Thinking(self._id, self._summary, self._signature)
+        return Thinking(self._signature, self._id, self._summary)
 
     @property
     def json(self):

@@ -120,7 +120,7 @@ class OpenAIResponsesGenerator(Generator):
                 elif message.type == "function_call":
                     r.append(ToolCall(id=message.id, name= message.name, arguments=json.loads(message.arguments)))
                 elif message.type == "reasoning":
-                    r.append(Thinking(message.id, [part.text for part in message.summary], message.encrypted_content))
+                    r.append(Thinking(message.encrypted_content, message.id, [part.text for part in message.summary]))
                     ...
 
             return r

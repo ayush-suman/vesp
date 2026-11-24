@@ -36,7 +36,7 @@ class Run(Awaitable[dict[str, Any] | None]):
         self._on_cancel_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None | Awaitable[None]]] = []
         self._on_retry_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None | Awaitable[None]]] = []
         self._on_error_callbacks: list[Callable[[Exception, dict[str, Any], dict[str, Any]], None | Awaitable[None]]] = []
-        self._on_complete_callbacks: list[Callable[[_T], None]] = []
+        self._on_complete_callbacks: list[Callable[[dict[str, Any]], None]] = []
         self._state: RunState = RunState.READY
         self._lock: asyncio.Lock = asyncio.Lock()
         self._initial_args = args
@@ -55,9 +55,9 @@ class Run(Awaitable[dict[str, Any] | None]):
             async for args, extras in self.run(self._stashed_args, extras=self._stashed_extras):
                 self._stashed_args = args
                 self._stashed_extras = extras
+            await invoke_funcs(self._on_complete_callbacks, self._stashed_args)
             self._future.set_result(self._stashed_args)
             print("run complete. invoking on complete callbacks")
-            await invoke_funcs(self._on_complete_callbacks, self._stashed_args)
         except asyncio.CancelledError as e:
             paused = e.args[0] if e.args else False
             if paused:
@@ -97,7 +97,7 @@ class Run(Awaitable[dict[str, Any] | None]):
         if self._state == RunState.PAUSED: return False
         if self._state == RunState.COMPLETED or self._state == RunState.ERROR: return False
         async def _pause():
-            if self._state == RunState.PAUSED: return
+            if self._state == RunState.PAUSED: return True
             self._state = RunState.PAUSING
             async with self._lock:
                 await self._task.cancel(True)

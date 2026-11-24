@@ -14,6 +14,7 @@ from vespwood_generator import (
     MaxTokenLimitError, 
     StopGeneration
 )
+from vespwood_generator.blocks.thinking import Thinking
 from vespwood_generator.structured import Structured
 
 
@@ -39,6 +40,12 @@ def _anthropic_messages_msg_converter(prompt: Message) -> list[dict[str, Any]]:
                 "id": block.id, 
                 "name": block.name, 
                 "input": block.arguments
+            })
+        elif isinstance(block, Thinking):
+            content.append({
+                "type": "thinking",
+                "thinking": "\n".join(block.summary),
+                "signature": block.signature
             })
         
     msgs.append({
@@ -105,12 +112,17 @@ class AnthropicMessagesGenerator(Generator):
                 
         
         try:
-            message = await self._model.messages.create(
+            message = await self._model.beta.messages.create(
                 max_tokens=128000,
                 model=self.model_name,
                 messages=prompts,
                 tools=anthropic_tools,
                 output_config=output_config,
+                betas=["thinking-binding-controls-2026-08-01"],
+                thinking={
+                    "type": "adaptive",
+                    "block_binding": {"prefix_mismatch_behavior": "drop_block"},
+                }
             )
 
             # Refusal
@@ -132,9 +144,7 @@ class AnthropicMessagesGenerator(Generator):
                 elif block.type == "tool_use":
                     response.append(ToolCall(id=block.id, name=block.name, arguments=block.input))
                 elif block.type == "thinking":
-                    # TODO:
-                    ...
-                    # response.append(ThinkingBlock(id=block.signature, content=block.thinking))
+                    response.append(Thinking(block.signature, summary=block.thinking))
                 elif block.type == "redacted_thinking":
                     # TODO:
                     ...
@@ -146,5 +156,6 @@ class AnthropicMessagesGenerator(Generator):
 
             return response
         
-        except AnthropicRateLimitError:
+        except AnthropicRateLimitError as e:
+            print("Error", e)
             raise RateLimitError()

@@ -2,7 +2,7 @@ from __future__ import annotations
 from abc import abstractmethod
 import asyncio
 import inspect
-from typing import Any, Awaitable, Callable, ParamSpec, TypeVar, Protocol, cast
+from typing import Any, Awaitable, Callable, Concatenate, ParamSpec, TypeVar, Protocol, cast
 from vesp.invokation import InvokationRestoreData, Invokation
 from vespwood.run import Run
 from vespwood_generator import suppliment
@@ -25,7 +25,7 @@ I = ParamSpec("I")
 O = TypeVar("O")
 C = TypeVar("C")
         
-class Agent(BaseAgent[I, O]):
+class Agent(BaseAgent[Concatenate[Callable[[dict[str, Any]], Run], I], O]):
     @abstractmethod
     def prepare_args(self, *args: I.args, **kwargs: I.kwargs): 
         ...
