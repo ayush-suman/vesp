@@ -48,19 +48,19 @@ class Tool(Schematic, Generic[I, O]):
     def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O: ...
 
 
-def tool(func: Callable[I, O] | None = None, *, name: str | None = None, description: str | None = None) -> Tool:
+def tool(func: Callable[I, O] | None = None, *, name: str | None = None, description: str | None = None, schema: Schematic | None = None) -> Tool:
     def wrapper(fn: Callable[I, O]):
         class WrapperTool(Tool[I, O]):
-            def __init__(self, name = None, description = None, schema = None):
-                name: str = name or fn.__name__
-                description: str | None = description or fn.__doc__
-                schema: Schematic = schema if schema else Schema.from_json_schema(name=name, description=description, json_schema=Schematic.to_json_schema(fn))
-                super().__init__(name, description, schema)
+            def __init__(self):
+                _name: str = name or fn.__name__
+                _description: str | None = description or fn.__doc__
+                _schema: Schematic = schema or Schema.from_json_schema(name=_name, description=_description, json_schema=Schematic.to_json_schema(fn))
+                super().__init__(_name, _description, _schema)
 
             def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O:
                 return fn(*args, **kwargs)
             
-        return WrapperTool(name=name or fn.__name__, description=description or fn.__doc__)
+        return WrapperTool()
         
     if func:
         wrapper.__qualname__ = func.__qualname__

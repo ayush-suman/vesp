@@ -2,6 +2,7 @@ from .blocks import (
     File,
     Image,
     ToolCall,
+    Thinking,
     Block
 )
 
@@ -53,6 +54,7 @@ __all__ = [
     "Image",
     "File",
     "ToolCall",
+    "Thinking",
     "Block",
 
     "GeneratorClass",

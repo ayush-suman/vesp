@@ -30,12 +30,12 @@ class RunState(Enum):
 
 class Run(Awaitable[dict[str, Any] | None]):
     def __init__(self, args: dict[str, Any], *, extras: dict[str, Any] = {}):
-        self._on_restart_callbacks: list[Callable[[dict[str, Any]], None]] = []
-        self._on_pause_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None]] = []
-        self._on_resume_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None]] = []
-        self._on_cancel_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None]] = []
-        self._on_retry_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None]] = []
-        self._on_error_callbacks: list[Callable[[Exception, dict[str, Any], dict[str, Any]], None]] = []
+        self._on_restart_callbacks: list[Callable[[dict[str, Any]], None | Awaitable[None]]] = []
+        self._on_pause_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None | Awaitable[None]]] = []
+        self._on_resume_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None | Awaitable[None]]] = []
+        self._on_cancel_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None | Awaitable[None]]] = []
+        self._on_retry_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None | Awaitable[None]]] = []
+        self._on_error_callbacks: list[Callable[[Exception, dict[str, Any], dict[str, Any]], None | Awaitable[None]]] = []
         self._on_complete_callbacks: list[Callable[[_T], None]] = []
         self._state: RunState = RunState.READY
         self._lock: asyncio.Lock = asyncio.Lock()
@@ -140,22 +140,25 @@ class Run(Awaitable[dict[str, Any] | None]):
         asyncio.create_task(_retry())
         
 
-    def add_on_restart_callback(self, on_restart_callback: Callable[[dict[str, Any]], None]): 
+    def add_on_restart_callback(self, on_restart_callback: Callable[[dict[str, Any]], None | Awaitable[None]]): 
         self._on_restart_callbacks.append(on_restart_callback)
 
-    def add_on_pause_callback(self, on_pause_callback: Callable[[dict[str, Any], dict[str, Any]], None]):
+    def add_on_pause_callback(self, on_pause_callback: Callable[[dict[str, Any], dict[str, Any]], None | Awaitable[None]]):
         self._on_pause_callbacks.append(on_pause_callback)
         
-    def add_on_resume_callback(self, on_resume_callback: Callable[[dict[str, Any], dict[str, Any]], None]):
+    def add_on_resume_callback(self, on_resume_callback: Callable[[dict[str, Any], dict[str, Any]], None | Awaitable[None]]):
         self._on_resume_callbacks.append(on_resume_callback)
 
-    def add_on_cancel_callback(self, on_cancel_callback: Callable[[dict[str, Any], dict[str, Any]], None]):
+    def add_on_cancel_callback(self, on_cancel_callback: Callable[[dict[str, Any], dict[str, Any]], None | Awaitable[None]]):
         self._on_cancel_callbacks.append(on_cancel_callback)
 
-    def add_on_error_callback(self, on_error_callback: Callable[[Exception, dict[str, Any], dict[str, Any]], None]):
+    def add_on_error_callback(self, on_error_callback: Callable[[Exception, dict[str, Any], dict[str, Any]], None | Awaitable[None]]):
         self._on_error_callbacks.append(on_error_callback)
 
-    def add_on_complete_callback(self, on_complete_callback: Callable[[dict[str, Any]], None]): 
+    def add_on_retry_callback(self, on_retry_callback: Callable[[dict[str, Any], dict[str, Any]], None | Awaitable[None]]):
+        self._on_retry_callbacks.append(on_retry_callback)
+
+    def add_on_complete_callback(self, on_complete_callback: Callable[[dict[str, Any]], None | Awaitable[None]]): 
         self._on_complete_callbacks.append(on_complete_callback)
 
     def __await__(self):

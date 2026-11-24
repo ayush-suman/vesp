@@ -9,7 +9,7 @@ from .invokation import Invokation
 from .visibility import Visibility
 
 from vespwood import (
-    Block, File, Image, Structured, ToolCall,
+    Block, File, Image, Structured, ToolCall, Thinking,
     Message, Tag,
     GeneratorClass, Generator, AsyncExecutor,
     Schematic, schema, Schema, tool, Tool, hook, Hook, hooktool, HookTool, interceptor, Interceptor, validator, Validator,
@@ -48,6 +48,7 @@ __all__ = [
     "Image",
     "Structured",
     "ToolCall",
+    "Thinking",
 
     "Message",
     

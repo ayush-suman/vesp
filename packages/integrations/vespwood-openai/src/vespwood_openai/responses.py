@@ -7,10 +7,12 @@ from vespwood_generator import (
     Message, 
     Structured,
     ToolCall, 
+    Thinking,
     Generator, 
     Schema, 
     Tool, 
     RateLimitError, 
+
 )
 
 
@@ -34,6 +36,13 @@ def _openai_response_msg_converter(prompt: Message):
                     })
                 else:
                     msgs[-1]["content"].append(content)
+            elif isinstance(block, Thinking):
+                msgs.append({
+                    "type": "reasoning", 
+                    "id": block.id, 
+                    "summary": [{"type": "summary_text", "text": text} for text in block.summary], 
+                    "encrypted_content": block.signature
+                })
             elif isinstance(block, ToolCall):
                 msgs.append({"call_id": block.id, "type": "function_call", "name": block.name, "arguments": json.dumps(block.arguments)})
 
@@ -92,7 +101,6 @@ class OpenAIResponsesGenerator(Generator):
                 text={"format": output_format},
                 store=False
             )
-            
             # Unfinished Response
             # if response.stop_reason == "max_tokens" or response.stop_reason == "model_context_window_exceeded":
             #     print("Output token limit exceeded. Continuing generation...")
@@ -112,11 +120,8 @@ class OpenAIResponsesGenerator(Generator):
                 elif message.type == "function_call":
                     r.append(ToolCall(id=message.id, name= message.name, arguments=json.loads(message.arguments)))
                 elif message.type == "reasoning":
-                    # TODO:
+                    r.append(Thinking(message.id, [part.text for part in message.summary], message.encrypted_content))
                     ...
-                # elif block.type == "thinking":
-                #     response.append(ThinkingBlock(id=block.signature, content=block.thinking))
-                # elif block.type == "redacted_thinking":
 
             return r
         

@@ -34,17 +34,27 @@ class OutputFuture(Awaitable[_O], Generic[_O]):
         self._run: Run = run
         self._future: asyncio.Future[_O | None] = asyncio.get_event_loop().create_future()
         self._nexts: list[Invokation] = []
+        self._on_pause_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None]] = []
+        self._on_resume_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None]] = []
+        self._on_cancel_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None]] = []
+        self._on_retry_callbacks: list[Callable[[dict[str, Any], dict[str, Any]], None]] = []
+        self._on_error_callbacks: list[Callable[[Exception, dict[str, Any], dict[str, Any]], None]] = []
+        self._post_run_callback: Callable[[dict[str, Any]], None] | None = None 
         self._on_output_callbacks: list[Callable[[_O], None]] = []
         async def on_complete(args: dict[str, Any]):
-            try:
-                result = self.post_run_processing(args)
-                if inspect.isawaitable(result):
-                    result = await result
-                self._future.set_result(result)
-                asyncio.create_task(invoke_funcs(self._on_output_callbacks, result))
-            except Exception as e:
-                self._future.set_exception(e)
+            if self._post_run_callback:
+                try:
+                    result = self._post_run_callback(args) 
+                    if inspect.isawaitable(result):
+                        result = await result
+                    self._future.set_result(result)
+                    asyncio.create_task(invoke_funcs(self._on_output_callbacks, result))
+                except Exception as e:
+                    self._future.set_exception(e)
+            else:
+                self._future.set_result(args)
         self._run.add_on_complete_callback(on_complete)
+
         async def on_error(e: Exception, *a):
             self._future.set_exception(e)
         self._run.add_on_error_callback(on_error)
@@ -61,12 +71,33 @@ class OutputFuture(Awaitable[_O], Generic[_O]):
         # TODO: 
         ...
 
-    @abstractmethod
-    def post_run_processing(run_result: dict[str, Any]) -> _O | Awaitable[_O]:
-        ...
+    def add_on_pause_callback(self, callback: Callable[[dict[str, Any], dict[str, Any]], None]):
+        self._on_pause_callbacks.append(callback)
+
+    def add_on_resume_callback(self, callback: Callable[[dict[str, Any], dict[str, Any]], None]):
+        self._on_resume_callbacks.append(callback)
+
+    def add_on_retry_callback(self, callback: Callable[[dict[str, Any], dict[str, Any]], None]):
+        self._on_retry_callbacks.append(callback)
+
+    def add_on_cancel_callback(self, callback: Callable[[dict[str, Any], dict[str, Any]], None]):
+        self._on_cancel_callbacks.append(callback)
+
+    def add_on_error_callback(self, callback: Callable[[Exception, dict[str, Any], dict[str, Any]], None]):
+        self._on_error_callbacks.append(callback)
+
+    def set_post_run_callback(self, callback: Callable[[dict[str, Any]], None]):
+        self._post_run_callback = callback
 
     def add_on_output_callback(self, callback: Callable[[_O], None]):
         self._on_output_callbacks.append(callback)
+
+    def add_output(self, output: _O):
+        self._future.set_result(output)
+        invoke_funcs(self._on)
+
+    def set_exception(self, exception: Exception):
+        self._future.set_exception(exception)
 
     def paused(self) -> bool:
         return self._run.paused()

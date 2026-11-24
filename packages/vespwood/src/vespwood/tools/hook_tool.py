@@ -7,7 +7,7 @@ I = ParamSpec("I")
 O = TypeVar("O")
 H = ParamSpec("H")
 class HookTool(Tool[I, O], Generic[I, O, H]):
-    def __init__(self, hook: Hook[H], name: str | None = None, description: str | None = None, schema: Schematic | None = None, ):
+    def __init__(self, hook: Hook[H], name: str | None = None, description: str | None = None, schema: Schematic | None = None):
         self._hook = hook
         super().__init__(name, description, schema)
 
@@ -37,18 +37,18 @@ class HookTool(Tool[I, O], Generic[I, O, H]):
 def hooktool(hook: Hook[H], *, name: str | None = None, description: str | None = None, schema: Schematic | None = None):
     def wrapper(fn: Callable[I, O]):
         class WrapperTool(HookTool[I, O, H]):
-            def __init__(self, hook: Hook[H], name = None, description = None, schema = None):
-                name: str = name or fn.__name__
-                description: str | None = description or fn.__doc__
-                schema: Schematic = schema if schema else Schema.from_json_schema(name=name, description=description, json_schema=Schematic.to_json_schema(fn))
-                super().__init__(hook, name, description, schema)
+            def __init__(self):
+                _name: str = name or fn.__name__
+                _description: str | None = description or fn.__doc__
+                _schema: Schematic = schema or Schema.from_json_schema(name=_name, description=_description, json_schema=Schematic.to_json_schema(fn))
+                super().__init__(hook, _name, _description, _schema)
 
             def __call__(self, *args: I.args, **kwargs: I.kwargs) -> O:
                 return fn(*args, **kwargs)
 
         WrapperTool.__class__.__qualname__ = fn.__qualname__
         WrapperTool.__class__.__name__ = fn.__name__
-        return WrapperTool(hook=hook, name=name or fn.__name__, description=description or fn.__doc__, schema=schema)
+        return WrapperTool()
     return wrapper
     
 

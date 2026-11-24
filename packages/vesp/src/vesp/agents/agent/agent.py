@@ -49,9 +49,6 @@ class Agent(BaseAgent[I, O]):
     async def on_retry(self, args: dict[str, Any], extras: dict[str, Any]) -> None:
         ...
 
-    async def on_responses(self, args: dict[str, Any], extras: dict[str, Any]) -> None:
-        ...
-
     def handle_responses(self, **kwargs) -> O:
         return kwargs
 
@@ -60,23 +57,24 @@ class Agent(BaseAgent[I, O]):
 
     def __call__(self: AgentLike[P, O_co], invokable: Callable[[dict[str, Any]], Run], *args: P.args, **kwargs: P.kwargs) -> Invokation[O_co]:
         agent = cast(Agent[P, O_co], self)
-        def on_args(prepared_args: dict[str, Any]) -> Awaitable[dict[str, Any]]:
+        def on_args(prepared_args: dict[str, Any]):
             run = invokable(prepared_args)
             run.add_on_pause_callback(agent.on_pause)
             run.add_on_resume_callback(agent.on_resume)
             run.add_on_error_callback(agent.on_error)
             run.add_on_cancel_callback(agent.on_cancel)
-    
+            run.add_on_retry_callback(agent.on_retry)
+            run.add_on_complete_callback(on_invoke)
+
             def on_invoke(output_args: dict[str, Any]) -> asyncio.Task[O]:
                 handle_responses = suppliment(agent.handle_responses, **output_args)
                 handle_responses_task = asyncio.create_task(handle_responses())
                 return handle_responses_task
-            class AgentOutputFuture(OutputFuture[O]):
-                def post_run_processing(future, run_result: dict[str, Any]) -> Awaitable[O]:
-                    return on_invoke(run_result)
-                
-            invokation.promise_output(AgentOutputFuture(run))
-            return run
+
+            of = OutputFuture(run)
+            of.set_post_run_callback(on_invoke)
+            of.add_on_output_callback(agent.on_complete)
+            invokation.promise_output(of)
         
         invokation = Invokation(args, kwargs)
         if inspect.isgeneratorfunction(self.prepare_args): 
@@ -100,7 +98,8 @@ class Agent(BaseAgent[I, O]):
                 if isinstance(prepared_args, dict): 
                     on_args(prepared_args)
                 else:
-                    for a in prepared_args: on_args(a)
+                    for a in prepared_args: 
+                        on_args(a)
                 invokation.promise_complete()
             prepare_args_task.add_done_callback(on_prepare_args_done)
 
@@ -109,7 +108,8 @@ class Agent(BaseAgent[I, O]):
             if isinstance(prepared_args, dict): 
                 on_args(prepared_args)
             else:
-                for a in prepared_args: on_args(a)
+                for a in prepared_args: 
+                    on_args(a)
             invokation.promise_complete()
         
         return invokation
