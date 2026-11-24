@@ -107,81 +107,75 @@ class AsyncExecutor(Executor):
 
         message_list = MessageList.from_prompt_structure(prompt_structure, args=args, structures=structures, extras=extras)
 
-        try:
-            messages, args, awaited_prompt = message_list.get_messages()
+        messages, args, awaited_prompt = message_list.get_messages()
 
-            while awaited_prompt:    
-                try:
-                    awaited_prompt = _Prompt.from_prompt_unit(
-                        awaited_prompt,
-                        executor=self,
-                        schemas=self._schemas + inplace_schemas,
-                        tools=self._tools,
-                        hooks=self._hooks,
-                        validators=self._validators,
-                        structures=structures
+        while awaited_prompt:    
+            try:
+                awaited_prompt = _Prompt.from_prompt_unit(
+                    awaited_prompt,
+                    executor=self,
+                    schemas=self._schemas + inplace_schemas,
+                    tools=self._tools,
+                    hooks=self._hooks,
+                    validators=self._validators,
+                    structures=structures
+                )
+
+                if awaited_prompt.awaited_type == AwaitedType.REQUIRE_CONTENT:    
+                    await invoke_funcs(
+                        interceptors,
+                        session_id,
+                        awaited_prompt.id,
+                        messages,
+                        args, 
+                        awaited_prompt.schema,
+                        awaited_prompt.tools,
+                        awaited_prompt.hooks,
+                        awaited_prompt.validators,
+                        awaited_prompt.saves,
+                        awaited_prompt.tag
                     )
 
-                    if awaited_prompt.awaited_type == AwaitedType.REQUIRE_CONTENT:    
-                        await invoke_funcs(
-                            interceptors,
-                            session_id,
-                            awaited_prompt.id,
-                            messages,
+                    async def get_valid_response(msgs: list[Message], prompt: _Prompt) -> Message:
+                        response = await generator.get_response(
+                            msgs, 
                             args, 
-                            awaited_prompt.schema,
-                            awaited_prompt.tools,
-                            awaited_prompt.hooks,
-                            awaited_prompt.validators,
-                            awaited_prompt.saves,
-                            awaited_prompt.tag
+                            prompt.schema, 
+                            prompt.tools, 
+                            self._continue_on_max_token, 
+                            self._retry_on_rate_limit, 
+                            self._retry_with_delay
                         )
 
-                        async def get_valid_response(msgs: list[Message], prompt: _Prompt) -> Message:
-                            response = await generator.get_response(
-                                msgs, 
-                                args, 
-                                prompt.schema, 
-                                prompt.tools, 
-                                self._continue_on_max_token, 
-                                self._retry_on_rate_limit, 
-                                self._retry_with_delay
-                            )
+                        error = await prompt.load_message(response, args)
+                        if error:
+                            validator_message, merge, validator = error
 
-                            error = await prompt.load_message(response, args)
-                            if error:
-                                validator_message, merge, validator = error
+                            callbacks = list(map(lambda i: i.on_validation_error_callback, interceptors))
+                            await invoke_funcs(callbacks, session_id, prompt.id, validator, response, validator_message)
 
-                                callbacks = list(map(lambda i: i.on_validation_error_callback, interceptors))
-                                await invoke_funcs(callbacks, session_id, prompt.id, validator, response, validator_message)
+                            new_response = await get_valid_response(messages + [response, validator_message], prompt)
+                            response = merge(response, new_response)
 
-                                new_response = await get_valid_response(messages + [response, validator_message], prompt)
-                                response = merge(response, new_response)
+                        return response
 
-                            return response
+                    valid_response = await get_valid_response(messages, awaited_prompt)
 
-                        valid_response = await get_valid_response(messages, awaited_prompt)
+                    on_response_callbacks = list(map(lambda i: i.on_response_callback, interceptors))
+                    await invoke_funcs(on_response_callbacks, session_id, awaited_prompt.id, valid_response)
+                    
+                new_args = await awaited_prompt.invoke(generator_factory, args, interceptors=interceptors)
+                message_list.update_content(awaited_prompt.id, awaited_prompt.content, args=new_args)
 
-                        on_response_callbacks = list(map(lambda i: i.on_response_callback, interceptors))
-                        await invoke_funcs(on_response_callbacks, session_id, awaited_prompt.id, valid_response)
-                        
-                    new_args = await awaited_prompt.invoke(generator_factory, args, interceptors=interceptors)
-                    message_list.update_content(awaited_prompt.id, awaited_prompt.content, args=new_args)
+                yield message_list.args, message_list.extras
 
-                    yield message_list.args, message_list.extras
-
-                    if awaited_prompt.stop_generation:
-                        print("StopGeneration exception encountered. Stopping generation.")
-                        break
-
-                    messages, args, awaited_prompt = message_list.get_messages()
-                except StopGeneration as e:
+                if awaited_prompt.stop_generation:
+                    print("StopGeneration exception encountered. Stopping generation.")
                     break
 
-        except Exception as e:
-            e.stashed_args = message_list.args
-            e.stashed_extras = message_list.extras
-            raise e
+                messages, args, awaited_prompt = message_list.get_messages()
+            except StopGeneration as e:
+                break
 
     
     def __start_run__(

@@ -326,7 +326,7 @@ class _Prompt(Message):
                     if returned_args:
                         new_args.update(returned_args)
                         args.update(returned_args)
-                elif isinstance(tool, PromptTool) and not tool.has_executor:
+                elif isinstance(tool, PromptTool):
                     tool = partial(tool, generator_factory, interceptors)
                 # Tool Call
                 try:

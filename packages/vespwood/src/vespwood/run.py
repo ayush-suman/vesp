@@ -45,6 +45,10 @@ class Run(Awaitable[dict[str, Any] | None]):
         self._future: asyncio.Future[dict[str, Any] | None] = asyncio.get_event_loop().create_future()
         self._task = asyncio.create_task(self.__run__())
 
+    @property
+    def stashed_data(self) -> tuple[dict[str, Any], dict[str, Any]]:
+        return self._stashed_args, self._stashed_extras
+
     async def __run__(self):
         try:
             self._state = RunState.RUNNING
@@ -52,21 +56,19 @@ class Run(Awaitable[dict[str, Any] | None]):
                 self._stashed_args = args
                 self._stashed_extras = extras
             self._future.set_result(self._stashed_args)
+            print("run complete. invoking on complete callbacks")
             await invoke_funcs(self._on_complete_callbacks, self._stashed_args)
         except asyncio.CancelledError as e:
-            self._stashed_args = e.stashed_args
-            self._stashed_extras = e.stashed_extras
-            self._future.set_result(None)
             paused = e.args[0] if e.args else False
             if paused:
                 await invoke_funcs(self._on_pause_callbacks, self._stashed_args, self._stashed_extras)
                 self._state = RunState.PAUSED
             else:
+                self._future.set_result(None)
                 await invoke_funcs(self._on_cancel_callbacks, self._stashed_args, self._stashed_extras)
                 RunState.CANCELLED
         except Exception as e:
-            self._stashed_args = e.stashed_args
-            self._stashed_extras = e.stashed_extras
+            print("Error", e)
             self._future.set_exception(e)
             await invoke_funcs(self._on_error_callbacks, e, self._stashed_args, self._stashed_extras)
             self._state = RunState.ERROR
@@ -115,32 +117,29 @@ class Run(Awaitable[dict[str, Any] | None]):
 
     def resume(self): 
         async def _resume():
-            if self._state == RunState.CANCELLED:
-                raise InvalidStateError("Cancelled run can not be resumed")
+            if self._state == RunState.CANCELLED or self._state == RunState.COMPLETED:
+                raise InvalidStateError("Cancelled or completed run can not be resumed")
             if self._state == RunState.ERROR:
                 raise InvalidStateError("Run stopped with error. Can not resume.")
             if self._state == RunState.RUNNING: return
             self._state = RunState.RESUMING
             async with self._lock:
                 self._task = asyncio.create_task(self.__run__())
-                self._future = asyncio.get_event_loop().create_future()
                 Run._invoke_callbacks(self._on_resume_callbacks, self._stashed_args, self._stashed_extras) 
         asyncio.create_task(_resume())
 
     def retry(self):
-        if self._state != RunState.ERROR or self._state != RunState.CANCELLED:
-            raise InvalidStateError("Only runs that are cancelled or has stopped due to error can be retried")
+        if self._state != RunState.ERROR:
+            raise InvalidStateError("Only run with error can be retried")
         async def _retry():
             async with self._lock:
-                if not hasattr(self, "_stashed_args") or not hasattr(self, "_stashed_extras"):
-                    raise InvalidStateError("Unable retry due to missing args or extras")
-                self._task = asyncio.create_task(self.__run__())
                 self._future = asyncio.get_event_loop().create_future()
+                self._task = asyncio.create_task(self.__run__())
                 Run._invoke_callbacks(self._on_retry_callbacks, self._stashed_args, self._stashed_extras)
         asyncio.create_task(_retry())
-        
 
     def add_on_restart_callback(self, on_restart_callback: Callable[[dict[str, Any]], None | Awaitable[None]]): 
+        # TODO: Add restart
         self._on_restart_callbacks.append(on_restart_callback)
 
     def add_on_pause_callback(self, on_pause_callback: Callable[[dict[str, Any], dict[str, Any]], None | Awaitable[None]]):

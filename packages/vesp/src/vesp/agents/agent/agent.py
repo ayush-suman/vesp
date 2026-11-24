@@ -3,8 +3,7 @@ from abc import abstractmethod
 import asyncio
 import inspect
 from typing import Any, Awaitable, Callable, ParamSpec, TypeVar, Protocol, cast
-from urllib.parse import urlparse
-from vesp.invokation import InvokationRestoreData, OutputFuture, Invokation
+from vesp.invokation import InvokationRestoreData, Invokation
 from vespwood.run import Run
 from vespwood_generator import suppliment
 
@@ -57,6 +56,13 @@ class Agent(BaseAgent[I, O]):
 
     def __call__(self: AgentLike[P, O_co], invokable: Callable[[dict[str, Any]], Run], *args: P.args, **kwargs: P.kwargs) -> Invokation[O_co]:
         agent = cast(Agent[P, O_co], self)
+
+        def on_invoke(output_args: dict[str, Any]) -> Awaitable[O]:
+            handle_responses = suppliment(agent.handle_responses, **output_args)
+            return handle_responses()
+
+        invokation = Invokation(args, kwargs, on_invoke)
+
         def on_args(prepared_args: dict[str, Any]):
             run = invokable(prepared_args)
             run.add_on_pause_callback(agent.on_pause)
@@ -64,19 +70,9 @@ class Agent(BaseAgent[I, O]):
             run.add_on_error_callback(agent.on_error)
             run.add_on_cancel_callback(agent.on_cancel)
             run.add_on_retry_callback(agent.on_retry)
-            run.add_on_complete_callback(on_invoke)
-
-            def on_invoke(output_args: dict[str, Any]) -> asyncio.Task[O]:
-                handle_responses = suppliment(agent.handle_responses, **output_args)
-                handle_responses_task = asyncio.create_task(handle_responses())
-                return handle_responses_task
-
-            of = OutputFuture(run)
-            of.set_post_run_callback(on_invoke)
-            of.add_on_output_callback(agent.on_complete)
-            invokation.promise_output(of)
+            invokation.add_on_output_callback(agent.on_complete)
+            invokation.promise_output(run)
         
-        invokation = Invokation(args, kwargs)
         if inspect.isgeneratorfunction(self.prepare_args): 
             generator = self.prepare_args(*args, **kwargs)
             for args in generator:
