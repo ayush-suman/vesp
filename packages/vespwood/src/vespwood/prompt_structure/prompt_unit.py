@@ -161,12 +161,35 @@ class PromptUnit(Message):
                 if isinstance(hook, str):
                     hooks.append(format_map(hook, prompt_mapping))
                 else:
-                    hook = {
+                    _hook = {
                         "name": format_map(hook["name"], prompt_mapping),
                         "args": { format_map(k, prompt_mapping): format_map(v, prompt_mapping) for k, v in hook["args"].items() }
                     }
-                    hooks.append(hook)
+                    if "structure" in hook:
+                        if isinstance(hook["structure"], str):
+                            _hook["structure"] = format_map(hook["structure"], prompt_mapping)
+                        else:
+                            _hook["structure"] = hook["structure"]
+                    hooks.append(_hook)
             prompt._hooks = hooks
+        if prompt._tools:
+            tools = []
+            for tool in prompt._tools:
+                if isinstance(tool, str):
+                    tools.append(format_map(tool, prompt_mapping))
+                else: 
+                    _tool = {
+                        "name": format_map(tool["name"], prompt_mapping),
+                        "args": { format_map(k, prompt_mapping): format_map(v, prompt_mapping) for k, v in tool.get("args", {}).items() }
+                    }
+                    if "structure" in tool:
+                        if isinstance(tool["structure"], str):
+                            _tool["structure"] = format_map(tool["structure"], prompt_mapping)
+                        else:
+                            _tool["structure"] = tool["structure"]
+                    tools.append(_tool)
+            prompt._tools = tools
+                        
         if prompt._saves:
             prompt._saves = { format_map(key, prompt_mapping): format_map(to, prompt_mapping) for key, to in prompt._saves.items() }
         return prompt

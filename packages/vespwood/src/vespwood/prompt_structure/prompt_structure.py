@@ -216,10 +216,11 @@ class PromptStructure:
     def to_prompt_list(id: uuid.UUID, data: PromptStructureData) -> list[PromptUnit | PromptStructure]:
         prompt_list = []
         for idx, prompt in enumerate(data):
+            id = uuid.uuid5(id, str(idx))
             if any(key in prompt for key in ("iterator", "in", "when", "switch", "if", "while", "structure")):
-                prompt_list.append(PromptStructure.load_from_dict(uuid.uuid5(id, str(idx)), prompt))
+                prompt_list.append(PromptStructure.load_from_dict(id, prompt))
             else:
-                prompt_list.append(PromptUnit.load_from_dict(uuid.uuid5(id, str(idx)), prompt))
+                prompt_list.append(PromptUnit.load_from_dict(id, prompt))
         return prompt_list
     
 
