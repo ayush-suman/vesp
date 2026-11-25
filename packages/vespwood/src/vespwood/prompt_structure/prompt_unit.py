@@ -166,7 +166,7 @@ class PromptUnit(Message):
                         _hook["args"] = {}
                         for k, v in hook["args"].items():
                             _k = format_keys(k, prompt_mapping)
-                            _v = format_keys(v, prompt_mapping)
+                            _v = format_keys(v, prompt_mapping) if isinstance(v, str) else v
                             _hook["args"][_k] = _v
                     if "structure" in hook:
                         if isinstance(hook["structure"], str):
