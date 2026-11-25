@@ -161,10 +161,13 @@ class PromptUnit(Message):
                 if isinstance(hook, str):
                     hooks.append(format_map(hook, prompt_mapping))
                 else:
-                    _hook = {
-                        "name": format_map(hook["name"], prompt_mapping),
-                        "args": { format_map(k, prompt_mapping): format_map(v, prompt_mapping) for k, v in hook["args"].items() }
-                    }
+                    _hook = { "name": format_map(hook["name"], prompt_mapping) }
+                    if "args" in hook:
+                        _hook["args"] = {}
+                        for k, v in hook["args"].items():
+                            _k = format_keys(k, prompt_mapping)
+                            _v = format_keys(v, prompt_mapping)
+                            _hook["args"][_k] = _v
                     if "structure" in hook:
                         if isinstance(hook["structure"], str):
                             _hook["structure"] = format_map(hook["structure"], prompt_mapping)
@@ -178,10 +181,13 @@ class PromptUnit(Message):
                 if isinstance(tool, str):
                     tools.append(format_map(tool, prompt_mapping))
                 else: 
-                    _tool = {
-                        "name": format_map(tool["name"], prompt_mapping),
-                        "args": { format_map(k, prompt_mapping): format_map(v, prompt_mapping) for k, v in tool.get("args", {}).items() }
-                    }
+                    _tool = { "name": format_map(tool["name"], prompt_mapping) }
+                    if "args" in tool:
+                        _tool["args"] = {}
+                        for k, v in tool["args"].items():
+                            _k = format_keys(k, prompt_mapping)
+                            _v = format_keys(v, prompt_mapping) if isinstance(v, str) else v
+                            _tool["args"][_k] = _v
                     if "structure" in tool:
                         if isinstance(tool["structure"], str):
                             _tool["structure"] = format_map(tool["structure"], prompt_mapping)
